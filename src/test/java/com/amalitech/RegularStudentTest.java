@@ -95,4 +95,20 @@ public class RegularStudentTest {
         assertEquals(0.0, s.calculateAverageGrade(), 0.0001);
         assertFalse("0 < 50 -> not passing", s.isPassing());
     }
+
+    @Test
+    public void getPassingGrade_is50_andTypeMatches() {
+        RegularStudent s = new RegularStudent("Extra", 20, "extra@example.com", "0249999999");
+        assertEquals("Regular Student", s.getStudentType());
+        assertEquals(50.0, s.getPassingGrade(), 0.0001);
+    }
+
+    @Test
+    public void recordGrade_returnsFalse_forInvalidValues() {
+        RegularStudent s = new RegularStudent("Invalids", 20, "invalids@example.com", "0248888888");
+        assertFalse(s.recordGrade(-1.0));
+        assertFalse(s.recordGrade(100.1));
+        assertFalse(s.recordGrade(Double.NaN));
+    }
+
 }
