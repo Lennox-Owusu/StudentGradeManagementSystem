@@ -90,4 +90,36 @@ public class HonorsStudentTest {
 
         assertEquals(3, s.getEnrolledSubjectCount());
     }
+
+    @Test
+    public void getPassingGrade_is60_andTypeMatches() {
+        HonorsStudent s = new HonorsStudent("ExtraH", 23, "extrah@example.com", "0247777777");
+        assertEquals("Honors Student", s.getStudentType());
+        assertEquals(60.0, s.getPassingGrade(), 0.0001);
+    }
+
+    @Test
+    public void honorsEligibility_thresholds_falseBelow_trueAt_trueAbove() {
+        HonorsStudent s = new HonorsStudent("Elig", 23, "elig@example.com", "0246666666");
+
+        assertTrue(s.recordGrade(84.99));
+        assertFalse("Below 85 -> not eligible", s.checkHonorsEligibility());
+
+        // reset scenario: make average exactly 85 with another grade
+        assertTrue(s.recordGrade(85.01)); // (84.99 + 85.01)/2 = 85.0
+        assertTrue("Exactly 85 -> eligible", s.checkHonorsEligibility());
+
+        // add another high to push above 85
+        assertTrue(s.recordGrade(90.0));
+        assertTrue("Above 85 -> eligible", s.checkHonorsEligibility());
+    }
+
+    @Test
+    public void honorsRecordGrade_invalidValuesReturnFalse() {
+        HonorsStudent s = new HonorsStudent("InvH", 24, "invh@example.com", "0245555555");
+        assertFalse(s.recordGrade(-0.1));
+        assertFalse(s.recordGrade(100.5));
+        assertFalse(s.recordGrade(Double.NaN));
+
+    }
 }
