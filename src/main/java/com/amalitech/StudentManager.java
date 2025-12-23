@@ -26,6 +26,7 @@ public class StudentManager {
             if (students[i].getStudentId().equalsIgnoreCase(studentId)) {
                 return students[i];
             }
+
         }
         return null;
 
