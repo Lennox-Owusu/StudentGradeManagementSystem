@@ -3,10 +3,8 @@ package com.amalitech.reporting;
 
 import com.amalitech.Student;
 
-/**
- * Generates simple text reports for a Student.
- * SRP: Only builds a formatted string; no file I/O here.
- */
+
+//Generates simple text reports for a Student.
 public class ReportGenerator {
 
     public String generateStudentReport(Student s) {

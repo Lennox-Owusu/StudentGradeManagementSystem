@@ -1184,13 +1184,4 @@ public class Main {
         }
     }
 
-    private static class InvalidGradeException extends Exception {
-        private final double value;
-        public InvalidGradeException(double value) {
-            super("Grade must be between 0 and 100.");
-            this.value = value;
-        }
-        public double getValue() { return value; }
-    }
-
 }

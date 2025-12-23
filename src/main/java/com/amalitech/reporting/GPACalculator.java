@@ -3,10 +3,8 @@ package com.amalitech.reporting;
 
 import java.util.List;
 
-/**
- * Computes GPA from percentage grades using a 4.0 scale mapping.
- * SRP: Only GPA-related logic.
- */
+
+ //Computes GPA from percentage grades using a 4.0 scale mapping.
 public class GPACalculator {
 
 
@@ -24,10 +22,9 @@ public class GPACalculator {
         return "F";
     }
 
-    /**
-     * Compute GPA (0.0 - 4.0) by converting each percentage to points, then averaging.
-     * Returns 0.0 if there are no grades.
-     */
+
+     //Compute GPA (0.0 - 4.0) by converting each percentage to points, then averaging.
+
     public double computeGPA(List<Double> percentages) {
         if (percentages == null || percentages.isEmpty()) return 0.0;
 
@@ -38,10 +35,6 @@ public class GPACalculator {
         return totalPoints / percentages.size();
     }
 
-    /**
-     * Example conversion from % to 4.0 scale (adjust as needed for your institution).
-     * You can later swap this logic via a Strategy to support different scales.
-     */
     public double toFourPointScale(double pct) {
         if (pct >= 85) return 4.0;
         if (pct >= 80) return 3.7;
