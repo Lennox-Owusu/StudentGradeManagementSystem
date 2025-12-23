@@ -24,7 +24,7 @@ public class Grade {
             throw new IllegalArgumentException("grade must be between 0 and 100");
         }
 
-        // --- State initialization ---
+        //State initialization
         this.gradeId = "GRD" + (++gradeCounter);
         this.studentId = studentId;
         this.subject = subject;
@@ -32,12 +32,17 @@ public class Grade {
         this.date = LocalDate.now().toString();
     }
 
-    // --- Getters (adapt names if yours differ) ---
-    public String getGradeId() { return gradeId; }
-    public String getStudentId() { return studentId; }
-    public Subject getSubject() { return subject; }
-    public double getGrade() { return grade; }
-    public String getDate() { return date; }
+    //Getters
+    public String getGradeId() {
+        return gradeId; }
+    public String getStudentId() {
+        return studentId; }
+    public Subject getSubject() {
+        return subject; }
+    public double getGrade() {
+        return grade; }
+    public String getDate() {
+        return date; }
 }
 
 
