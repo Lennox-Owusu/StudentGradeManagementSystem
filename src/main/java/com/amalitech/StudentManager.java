@@ -28,6 +28,7 @@ public class StudentManager {
             }
         }
         return null;
+
     }
 
     public Student[] getStudents() {
@@ -45,6 +46,8 @@ public class StudentManager {
         double sum = 0;
         for (int i = 0; i < studentCount; i++) sum += students[i].calculateAverageGrade();
         return sum / studentCount;
+
+
     }
 
 }
