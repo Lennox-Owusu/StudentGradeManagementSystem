@@ -129,7 +129,7 @@ public class Main {
             System.out.printf("%-8s │ %-18s │ %-8s │ %-10.2f │ %-8s%n",
                     s.getStudentId(), truncateName(s.getName()), s.getStudentType(),
                     s.calculateAverageGrade(), (s.isPassing() ? "Passing" : "Failing"));
-            if ("Honors".equals(s.getStudentType())) {
+            if ("Honors Student".equals(s.getStudentType())) {
                 boolean eligible = (s instanceof HonorsStudent) && ((HonorsStudent) s).checkHonorsEligibility();
                 System.out.printf("        Enrolled Subjects: %d | Passing Grade: %.0f%% |     Honors Eligible: %s%n",
                         s.getEnrolledSubjectCount(), s.getPassingGrade(), (eligible ? "Yes" : "No"));
@@ -1081,13 +1081,24 @@ public class Main {
                         if (avg >= min && avg <= max) results.add(s);
                     }
                 }
+
                 case 4 -> {
                     System.out.print("\nEnter type (Regular/Honors): ");
                     String q = scanner.nextLine().trim();
+
+                    // Normalize to the labels returned by getStudentType()
+                    String label =
+                            q.equalsIgnoreCase("Regular") ? "Regular Student" :
+                                    q.equalsIgnoreCase("Honors")  ? "Honors Student"  :
+                                            q; // allow full labels too
+
                     for (Student s : all) {
-                        if (s.getStudentType().equalsIgnoreCase(q)) results.add(s);
+                        if (s.getStudentType().equalsIgnoreCase(label)) {
+                            results.add(s);
+                        }
                     }
-                }
+
+            }
             }
 
             printSearchResults(results);
