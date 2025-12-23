@@ -1,5 +1,12 @@
 package com.amalitech;
 
+import com.amalitech.reporting.ReportGenerator;
+import com.amalitech.io.FileExporter;
+import com.amalitech.reporting.GPACalculator;
+import com.amalitech.io.CSVParser;
+import com.amalitech.calculation.StatisticsCalculator;
+
+
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -15,6 +22,18 @@ import java.io.BufferedReader;
 import java.util.Scanner;
 
 public class Main {
+
+    private static final StatisticsCalculator STATS = new StatisticsCalculator();
+    //
+    private static String safeTrim(String s) {
+        return (s == null) ? "" : s.trim();
+    }
+
+
+    private static final ReportGenerator REPORT_GENERATOR = new ReportGenerator();
+    private static final FileExporter FILE_EXPORTER = new FileExporter();
+    private static final GPACalculator GPA_CALCULATOR = new GPACalculator();
+
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         StudentManager studentManager = new StudentManager(50);
@@ -241,15 +260,16 @@ public class Main {
         }
 
 
+
         double gradeValue;
         while (true) {
             System.out.print("\nEnter grade (0-100): ");
             String gradeStr = scanner.nextLine().trim();
             try {
                 double g = Double.parseDouble(gradeStr);
-                if (g < 0 || g > 100) throw new InvalidGradeException(g);
+                com.amalitech.util.Validators.requireGradeInRange(g); // may throw InvalidGradeException
                 gradeValue = g;
-                break; // valid -> proceed to confirmation
+                break; // valid -> proceed
             } catch (NumberFormatException nfe) {
                 System.out.println("\n✗ ERROR: NumberFormatException");
                 System.out.println("  Grade must be a number between 0 and 100.");
@@ -257,14 +277,14 @@ public class Main {
                 System.out.print("\nTry again? (Y/N): ");
                 String retry = scanner.nextLine().trim().toUpperCase();
                 if (!"Y".equals(retry)) return;
-            } catch (InvalidGradeException ige) {
+            } catch (com.amalitech.exceptions.InvalidGradeException ige) {
                 System.out.println("\n✗ ERROR: InvalidGradeException");
                 System.out.println("  " + ige.getMessage());
-                System.out.println("  You entered: " + (gradeStr.isEmpty() ? ige.getValue() : gradeStr));
                 System.out.print("\nTry again? (Y/N): ");
                 String retry = scanner.nextLine().trim().toUpperCase();
                 if (!"Y".equals(retry)) return;
             }
+
         }
 
 
@@ -312,11 +332,11 @@ public class Main {
             scanner.nextLine();
             return;
         }
-        System.out.println("\nStudent: " + student.getStudentId() + " - " + student.getName());
-        System.out.println("Type: " + student.getStudentType());
-        System.out.printf("Current Average: %.2f%n", student.calculateAverageGrade());
-        System.out.println("Status: " + (student.isPassing() ? "Passing" : "Failing"));
+
+        String summary = REPORT_GENERATOR.generateStudentReport(student);
+        System.out.println(summary);
         System.out.println("─".repeat(50));
+
         boolean hasGrades = false;
         int totalGrades = 0;
         for (int i = 0; i < gradeManager.getGradeCount(); i++) {
@@ -439,85 +459,53 @@ public class Main {
         boolean passing = student.isPassing();
         boolean honorsEligible = (student instanceof HonorsStudent) && ((HonorsStudent) student).checkHonorsEligibility();
 
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(target.toFile()))) {
 
-            // Header block
-            writer.write("╔" + "═".repeat(50) + "╗");
-            writer.newLine();
-            writer.write("║ EXPORT GRADE REPORT");
-            writer.newLine();
-            writer.write("╚" + "═".repeat(50) + "╝");
-            writer.newLine();
-            writer.newLine();
+        StringBuilder out = new StringBuilder();
 
-            // Student overview
-            writer.write("Student: " + student.getStudentId() + " - " + student.getName());
-            writer.newLine();
-            writer.write("Type: " + student.getStudentType());
-            writer.newLine();
-            writer.write(String.format("Overall Average: %.2f%%", overallAvg));
-            writer.newLine();
-            writer.write("Enrolled Subjects: " + student.getEnrolledSubjectCount());
-            writer.newLine();
-            writer.write(String.format("Passing Grade Threshold: %.0f%%", student.getPassingGrade()));
-            writer.newLine();
-            if ("Honors".equals(student.getStudentType())) {
-                writer.write("Honors Eligible: " + (honorsEligible ? "Yes" : "No"));
-                writer.newLine();
+// Header
+        out.append("╔").append("═".repeat(50)).append("╗").append(System.lineSeparator());
+        out.append("║ EXPORT GRADE REPORT").append(System.lineSeparator());
+        out.append("╚").append("═".repeat(50)).append("╝").append(System.lineSeparator()).append(System.lineSeparator());
+
+// Summary generated by ReportGenerator (includes Average/GPA/Passing)
+        out.append(REPORT_GENERATOR.generateStudentReport(student)).append(System.lineSeparator());
+
+// Your additional summary metrics
+        out.append("SUMMARY METRICS").append(System.lineSeparator());
+        out.append(String.format("Total Grades: %d%n", list.size()));
+        out.append(String.format("Core Subjects Average: %.2f%%%n", coreAvg));
+        out.append(String.format("Elective Subjects Average: %.2f%%%n", elecAvg));
+        out.append(String.format("Overall Average: %.2f%%%n", overallAvg));
+        out.append("─".repeat(70)).append(System.lineSeparator());
+
+// Detailed table if chosen
+        if (exportChoice == 2 || exportChoice == 3) {
+            out.append("DETAILED REPORT (All Grades)").append(System.lineSeparator());
+            out.append(String.format("%-8s │ %-10s │ %-20s │ %-8s │ %-7s%n",
+                    "GRD ID", "DATE", "SUBJECT", "TYPE", "GRADE"));
+            out.append("─".repeat(70)).append(System.lineSeparator());
+            for (int i = list.size() - 1; i >= 0; i--) {
+                Grade g = list.get(i);
+                out.append(String.format("%-8s │ %-10s │ %-20s │ %-8s │ %-7.2f%n",
+                        g.getGradeId(), g.getDate(), g.getSubject().getSubjectName(),
+                        g.getSubject().getSubjectType(), g.getGrade()));
             }
-            writer.write("─".repeat(70));
-            writer.newLine();
+            out.append("─".repeat(70)).append(System.lineSeparator());
+            out.append(String.format("Total Grades: %d%n", list.size()));
+        }
 
-            // Summary section
-            if (exportChoice == 1 || exportChoice == 3) {
-                writer.write("SUMMARY REPORT");
-                writer.newLine();
-                writer.write("Total Grades: " + list.size());
-                writer.newLine();
-                writer.write(String.format("Core Subjects Average: %.2f%%", coreAvg));
-                writer.newLine();
-                writer.write(String.format("Elective Subjects Average: %.2f%%", elecAvg));
-                writer.newLine();
-                writer.write(String.format("Overall Average: %.2f%%", overallAvg));
-                writer.newLine();
-                writer.write("Performance Summary:");
-                writer.newLine();
-                writer.write(" - Status: " + (passing ? "Passing" : "Failing"));
-                writer.newLine();
-                writer.write(" - Meets threshold (" + (int) student.getPassingGrade() + "%): " + (passing ? "Yes" : "No"));
-                writer.newLine();
-                writer.write("─".repeat(70));
-                writer.newLine();
-            }
+// Export via FileExporter
 
-            // Detailed table
-            if (exportChoice == 2 || exportChoice == 3) {
-                writer.write("DETAILED REPORT (All Grades)");
-                writer.newLine();
-                writer.write(String.format("%-8s | %-10s | %-20s | %-8s | %-7s",
-                        "GRD ID", "DATE", "SUBJECT", "TYPE", "GRADE"));
-                writer.newLine();
-                writer.write("─".repeat(70));
-                writer.newLine();
-
-                for (int i = list.size() - 1; i >= 0; i--) {
-                    Grade g = list.get(i);
-                    writer.write(String.format("%-8s | %-10s | %-20s | %-8s | %-7.2f",
-                            g.getGradeId(), g.getDate(), g.getSubject().getSubjectName(),
-                            g.getSubject().getSubjectType(), g.getGrade()));
-                    writer.newLine();
-                }
-                writer.write("─".repeat(70));
-                writer.newLine();
-                writer.write("Total Grades: " + list.size());
-                writer.newLine();
-            }
-        } catch (IOException e) {
-            System.out.println("Failed to export report: " + e.getMessage());
+        try {
+            FILE_EXPORTER.exportToFile(out.toString(), target);
+        } catch (com.amalitech.exceptions.ExportFailedException e) {
+            System.out.println("\n✗ ERROR: ExportFailedException");
+            System.out.println("  " + e.getMessage());
             System.out.print("\nPress Enter to continue...");
             scanner.nextLine();
             return;
         }
+
 
 
         //show number of grades recorded
@@ -546,6 +534,7 @@ public class Main {
     }
 
 
+
     private static void calculateStudentGPA(Scanner scanner, StudentManager studentManager, GradeManager gradeManager) {
         System.out.println("\nCALCULATE STUDENT GPA");
         System.out.println("─".repeat(50));
@@ -559,6 +548,7 @@ public class Main {
             scanner.nextLine();
             return;
         }
+
         // Collect grades for this student
         List<Grade> grades = new ArrayList<>();
         for (int i = 0; i < gradeManager.getGradeCount(); i++) {
@@ -573,28 +563,34 @@ public class Main {
             scanner.nextLine();
             return;
         }
+
         System.out.println("\nStudent: " + student.getStudentId() + " - " + student.getName());
         System.out.println("Type: " + student.getStudentType());
         System.out.printf("Overall Average: %.2f%%%n", student.calculateAverageGrade());
         System.out.println();
+
         System.out.println("GPA CALCULATION (4.0 Scale)");
         System.out.printf("%-12s │ %-6s │ %-10s%n", "Subject", "Grade", "GPA Points");
         System.out.println("─".repeat(40));
+
         double gpaSum = 0.0;
         for (Grade g : grades) {
-            GPAMap map = toGPA(g.getGrade());
-            System.out.printf("%-12s │  %5.0f%% │  %.1f (%s)%n",
-                    g.getSubject().getSubjectName(), g.getGrade(), map.points, map.letter);
-
+            double points = GPA_CALCULATOR.toFourPointScale(g.getGrade());
+            String letter = GPA_CALCULATOR.toLetter(g.getGrade());
+            System.out.printf("%-12s │ %5.0f%% │ %.1f (%s)%n",
+                    g.getSubject().getSubjectName(), g.getGrade(), points, letter);
+            gpaSum += points;
         }
+
         double cumulativeGpa = gpaSum / grades.size();
-        GPAMap overallLetter = toGPA(student.calculateAverageGrade());
+        String overallLetter = GPA_CALCULATOR.toLetter(student.calculateAverageGrade());
+
         // Class rank among current students by cumulative GPA
         int totalStudents = studentManager.getStudentCount();
         double[] gpas = new double[totalStudents];
         Student[] all = studentManager.getStudents();
+
         for (int i = 0; i < totalStudents; i++) {
-            // compute GPA for each student using their recorded grades in GradeManager
             List<Grade> gs = new ArrayList<>();
             String sid = all[i].getStudentId();
             for (int j = 0; j < gradeManager.getGradeCount(); j++) {
@@ -606,48 +602,35 @@ public class Main {
             if (gs.isEmpty()) {
                 gpas[i] = 0.0;
             } else {
-                double sum = 0.0;
-                for (Grade gg : gs) sum += toGPA(gg.getGrade()).points;
-                gpas[i] = sum / gs.size();
+                List<Double> ps = new ArrayList<>();
+                for (Grade gg : gs) ps.add(gg.getGrade());
+                gpas[i] = GPA_CALCULATOR.computeGPA(ps);
             }
         }
+
         int rank = 1;
         for (double other : gpas) {
             if (other > cumulativeGpa) rank++;
         }
+
         System.out.println();
         System.out.printf("Cumulative GPA: %.2f / 4.0%n", cumulativeGpa);
-        System.out.printf("Letter Grade: %s%n", overallLetter.letter);
+        System.out.printf("Letter Grade: %s%n", overallLetter);
         System.out.printf("Class Rank: %d of %d%n", rank, totalStudents);
         System.out.println();
+
         System.out.println("Performance Analysis:");
         System.out.println((cumulativeGpa >= 3.5 ? "✓" : "•") + " Excellent performance (3.5+ GPA)");
         boolean honorsEligible = (student instanceof HonorsStudent) && ((HonorsStudent) student).checkHonorsEligibility();
         System.out.println((honorsEligible ? "✓" : "•") + " Honors eligibility maintained");
+
         double classAvgGpa = 0.0;
         for (double v : gpas) classAvgGpa += v;
         classAvgGpa = totalStudents == 0 ? 0.0 : classAvgGpa / totalStudents;
         System.out.printf((cumulativeGpa >= classAvgGpa ? "✓" : "•") + " Above class average (%.2f GPA)%n", classAvgGpa);
+
         System.out.print("\nPress Enter to continue...");
         scanner.nextLine();
-    }
-
-
-    private record GPAMap(double points, String letter) {
-    }
-
-    private static GPAMap toGPA(double pct) {
-        if (pct >= 93) return new GPAMap(4.0, "A");
-        if (pct >= 90) return new GPAMap(3.7, "A-");
-        if (pct >= 87) return new GPAMap(3.3, "B+");
-        if (pct >= 83) return new GPAMap(3.0, "B");
-        if (pct >= 80) return new GPAMap(2.7, "B-");
-        if (pct >= 77) return new GPAMap(2.3, "C+");
-        if (pct >= 73) return new GPAMap(2.0, "C");
-        if (pct >= 70) return new GPAMap(1.7, "C-");
-        if (pct >= 67) return new GPAMap(1.3, "D+");
-        if (pct >= 60) return new GPAMap(1.0, "D");
-        return new GPAMap(0.0, "F");
     }
 
 
@@ -705,39 +688,48 @@ public class Main {
         int totalRows = 0;
         int success = 0;
         int failed = 0;
-        java.util.List<String> failures = new java.util.ArrayList<>();
+        List<String> failures = new ArrayList<>();
 
-        // Read CSV
-        try (BufferedReader br = Files.newBufferedReader(csvPath, StandardCharsets.UTF_8);
-             BufferedWriter log = Files.newBufferedWriter(logPath, StandardCharsets.UTF_8)) {
-
+        // Read CSV lines
+        CSVParser parser = new CSVParser();
+        List<String> rawLines = new ArrayList<>();
+        try (BufferedReader br = Files.newBufferedReader(csvPath, StandardCharsets.UTF_8)) {
             String line;
-            int rowNum = 0;
-
             while ((line = br.readLine()) != null) {
-                rowNum++;
-                line = line.trim();
-                if (line.isEmpty()) continue;
+                rawLines.add(line);
+            }
+        } catch (IOException e) {
+            System.out.println("Import failed while reading CSV: " + e.getMessage());
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
 
-                if (rowNum == 1 && line.toLowerCase().startsWith("studentid,")) {
-                    continue;
-                }
+        // Parse lines (auto-skip header if present)
+        List<String[]> rows = parser.parseLines(rawLines, true);
 
+        // Prepare log writer
+        try (BufferedWriter log = Files.newBufferedWriter(logPath, StandardCharsets.UTF_8)) {
+
+            for (int i = 0; i < rows.size(); i++) {
+                String[] parts = rows.get(i);
+                int rowNum = i + 1; // human-friendly numbering
                 totalRows++;
 
-                String[] parts = line.split(",", -1); // keep empty tokens
+                // Validate column count
                 if (parts.length != 4) {
                     failed++;
                     String reason = "Row " + rowNum + ": Invalid column count (" + parts.length + ")";
                     failures.add(reason);
-                    log.write(reason); log.newLine();
+                    log.write(reason);
+                    log.newLine();
                     continue;
                 }
 
-                String sid     = parts[0].trim().toUpperCase();
-                String subj    = parts[1].trim();
-                String type    = parts[2].trim();
-                String gradeStr= parts[3].trim();
+                String sid      = safeTrim(parts[0]).toUpperCase();
+                String subj     = safeTrim(parts[1]);
+                String type     = safeTrim(parts[2]);
+                String gradeStr = safeTrim(parts[3]);
 
                 // Validate student
                 Student student = studentManager.findStudent(sid);
@@ -760,7 +752,7 @@ public class Main {
                     continue;
                 }
 
-                // Parse and validate grade
+                // Parse grade value
                 double pct;
                 try {
                     pct = Double.parseDouble(gradeStr);
@@ -779,14 +771,16 @@ public class Main {
                     continue;
                 }
 
+                // Build subject
                 Subject subject = isCore
                         ? new CoreSubject(subj, "C" + (int) (Math.random() * 1000))
                         : new ElectiveSubject(subj, "E" + (int) (Math.random() * 1000));
 
+                // Create and store grade
                 Grade grade = new Grade(sid, subject, pct);
                 gradeManager.addGrade(grade);
 
-                // Record grade via Gradable
+                // Record via Student (Gradable)
                 boolean ok = student.recordGrade(pct);
                 if (!ok) {
                     failed++;
@@ -796,11 +790,12 @@ public class Main {
                     continue;
                 }
 
+                // Enroll subject
                 student.enrollSubject(subject);
-
                 success++;
             }
 
+            // Write import summary
             log.newLine();
             log.write("IMPORT SUMMARY"); log.newLine();
             log.write("Total Rows: " + totalRows); log.newLine();
@@ -814,26 +809,32 @@ public class Main {
             return;
         }
 
+        // Console summary (same as your current version)
         System.out.println();
         System.out.println("IMPORT SUMMARY");
         System.out.println("─".repeat(50));
         System.out.println("Total Rows: " + totalRows);
         System.out.println("Successfully Imported: " + success);
         System.out.println("Failed: " + failed);
-
         if (!failures.isEmpty()) {
             System.out.println();
             System.out.println("Failed Records:");
             for (String f : failures) System.out.println(f);
         }
-
         System.out.println();
         System.out.println("✓ Import completed!");
         System.out.println(success + " grades added to system");
         System.out.println("See " + logPath.getFileName() + " for details");
-
         System.out.print("\nPress Enter to continue...");
         scanner.nextLine();
+
+    }
+
+    private static String requireNotEmpty(String label, String value) throws com.amalitech.exceptions.CsvFormatException {
+        if (value == null || value.trim().isEmpty()) {
+            throw new com.amalitech.exceptions.CsvFormatException(label + " cannot be empty.");
+        }
+        return value.trim();
     }
 
     private static void viewClassStatistics(Scanner scanner,
@@ -863,70 +864,43 @@ public class Main {
             return;
         }
 
-        //Grade distribution
-        int a = 0, b = 0, c = 0, d = 0, f = 0;
+        // Extract numeric values once
+        java.util.List<Double> values = new java.util.ArrayList<>(totalGrades);
+        for (Grade g : allGrades) values.add(g.getGrade());
+
+        // Grade distribution via calculator
+        int[] bands = STATS.gradeBandsCounts(values);
+
+        // Also compute min/max grades with owning Grade references for display
         double min = 101, max = -1;
         Grade minG = null, maxG = null;
-
         for (Grade g : allGrades) {
             double v = g.getGrade();
             if (v > max) { max = v; maxG = g; }
             if (v < min) { min = v; minG = g; }
-            if (v >= 90) a++;
-            else if (v >= 80) b++;
-            else if (v >= 70) c++;
-            else if (v >= 60) d++;
-            else f++;
         }
 
         System.out.println("\nGRADE DISTRIBUTION");
         System.out.println("─".repeat(60));
-        printBand("90–100% (A):", a, totalGrades);
-        printBand("80–89%  (B):", b, totalGrades);
-        printBand("70–79%  (C):", c, totalGrades);
-        printBand("60–69%  (D):", d, totalGrades);
-        printBand("0–59%   (F):", f, totalGrades);
+        printBand("90–100% (A):", bands[0], totalGrades);
+        printBand("80–89%  (B):", bands[1], totalGrades);
+        printBand("70–79%  (C):", bands[2], totalGrades);
+        printBand("60–69%  (D):", bands[3], totalGrades);
+        printBand("0–59%   (F):", bands[4], totalGrades);
 
-        //Statistical analysis
-        // Mean
-        double sum = 0.0;
-        for (Grade g : allGrades) sum += g.getGrade();
-        double mean = sum / totalGrades;
-
-        // Median
-        double[] arr = new double[totalGrades];
-        for (int i = 0; i < totalGrades; i++) arr[i] = allGrades.get(i).getGrade();
-        java.util.Arrays.sort(arr);
-        double median = (totalGrades % 2 == 1)
-                ? arr[totalGrades / 2]
-                : (arr[totalGrades / 2 - 1] + arr[totalGrades / 2]) / 2.0;
-
-        // Mode
-        java.util.Map<Integer, Integer> freq = new java.util.HashMap<>();
-        for (double v : arr) {
-            int r = (int) Math.round(v);
-            freq.put(r, freq.getOrDefault(r, 0) + 1);
-        }
-        int modeVal = -1, bestFreq = -1;
-        for (java.util.Map.Entry<Integer, Integer> e : freq.entrySet()) {
-            int val = e.getKey(), cnt = e.getValue();
-            if (cnt > bestFreq || (cnt == bestFreq && val > modeVal)) {
-                bestFreq = cnt; modeVal = val;
-            }
-        }
-
-        // Population Standard Deviation
-        double sq = 0.0;
-        for (double v : arr) sq += Math.pow(v - mean, 2);
-        double std = Math.sqrt(sq / totalGrades);
+        // Statistical analysis with calculator
+        double mean    = STATS.mean(values);
+        double median  = STATS.median(values);
+        double modeVal = STATS.modeRounded(values);
+        double std     = STATS.stdDevPopulation(values);
 
         System.out.println("\nSTATISTICAL ANALYSIS");
         System.out.println("─".repeat(60));
-        System.out.printf("Mean (Average):   %.1f%%%n", mean);
-        System.out.printf("Median:           %.1f%%%n", median);
-        System.out.printf("Mode:             %.1f%%%n", (double) modeVal);
+        System.out.printf("Mean (Average):     %.1f%%%n", mean);
+        System.out.printf("Median:             %.1f%%%n", median);
+        System.out.printf("Mode:               %.1f%%%n", modeVal);
         System.out.printf("Standard Deviation: %.1f%%%n", std);
-        System.out.printf("Range:            %.1f%% (%.0f%% – %.0f%%)%n", (max - min), min, max);
+        System.out.printf("Range:              %.1f%% (%.0f%% – %.0f%%)%n", (max - min), min, max);
 
         // Highest/Lowest grade records
         assert maxG != null;
@@ -936,7 +910,7 @@ public class Main {
         System.out.printf("Lowest  Grade: %.0f%% (%s - %s)%n",
                 minG.getGrade(), minG.getStudentId(), minG.getSubject().getSubjectName());
 
-        //Subject performance
+        // Subject performance (retain your aggregation)
         double coreSum = 0, coreCnt = 0, elecSum = 0, elecCnt = 0;
         java.util.Map<String, double[]> subjectAgg = new java.util.HashMap<>(); // name -> [sum, count]
         for (Grade g : allGrades) {
@@ -964,10 +938,11 @@ public class Main {
         printSubjectAvg(subjectAgg, "Art");
         printSubjectAvg(subjectAgg, "Physical Education");
 
-        //Student type comparison
+        // Student type comparison (retain your logic; normalize labels)
         java.util.Map<String, Integer> gradesPerStudent = new java.util.HashMap<>();
         for (Grade g : allGrades) {
-            gradesPerStudent.put(g.getStudentId(), gradesPerStudent.getOrDefault(g.getStudentId(), 0) + 1);
+            gradesPerStudent.put(g.getStudentId(),
+                    gradesPerStudent.getOrDefault(g.getStudentId(), 0) + 1);
         }
 
         double regSumAvg = 0.0; int regCount = 0;
@@ -976,8 +951,12 @@ public class Main {
             Integer scnt = gradesPerStudent.get(s.getStudentId());
             if (scnt == null || scnt == 0) continue; // skip students with no grades
             double avg = s.calculateAverageGrade();
-            if ("Regular".equalsIgnoreCase(s.getStudentType())) { regSumAvg += avg; regCount++; }
-            else if ("Honors".equalsIgnoreCase(s.getStudentType())) { honSumAvg += avg; honCount++; }
+            String type = s.getStudentType();
+            if ("Regular".equalsIgnoreCase(type) || "Regular Student".equalsIgnoreCase(type)) {
+                regSumAvg += avg; regCount++;
+            } else if ("Honors".equalsIgnoreCase(type) || "Honors Student".equalsIgnoreCase(type)) {
+                honSumAvg += avg; honCount++;
+            }
         }
 
         System.out.println("\nSTUDENT TYPE COMPARISON");
@@ -989,7 +968,7 @@ public class Main {
 
         System.out.print("\nPress Enter to continue...");
         scanner.nextLine();
-    }
+}
 
     //helpers for Class Statistics
     private static void printBand(String label, int count, int total) {
