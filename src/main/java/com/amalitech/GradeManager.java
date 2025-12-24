@@ -18,6 +18,7 @@ public class GradeManager {
         if (gradeCount < grades.length) {
             grades[gradeCount++] = grade;
         }
+
     }
 
     public Grade getGradeAt(int index) {

@@ -6,17 +6,20 @@ import com.amalitech.exceptions.InvalidGradeException;
 public final class Validators {
     private Validators() {}
 
-    //Ensures grade is within [0..100]; otherwise throws.
+    //Guards: 0 <= grade <= 100; throws InvalidGradeException otherwise.
     public static void requireGradeInRange(double grade) throws InvalidGradeException {
-        if (grade < 0 || grade > 100) {
+        if (Double.isNaN(grade) || grade < 0.0 || grade > 100.0) {
             throw new InvalidGradeException(grade);
         }
     }
 
-    //Ensures a required string is nonempty; throws IllegalArgumentException if not.
-    public static void requireNonEmpty(String label, String value) {
-        if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException(label + " cannot be empty.");
+    //Trims value; ensures non-empty after trim.
+    public static String requireNotBlank(String label, String value) throws IllegalArgumentException {
+        String v = (value == null) ? "" : value.trim();
+        if (v.isEmpty()) {
+            throw new IllegalArgumentException(label + " must not be empty.");
         }
+        return v;
     }
+
 }

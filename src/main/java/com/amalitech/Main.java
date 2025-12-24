@@ -1,10 +1,15 @@
 package com.amalitech;
 
+import com.amalitech.exceptions.CsvFormatException;
 import com.amalitech.reporting.ReportGenerator;
 import com.amalitech.io.FileExporter;
 import com.amalitech.reporting.GPACalculator;
 import com.amalitech.io.CSVParser;
 import com.amalitech.calculation.StatisticsCalculator;
+import com.amalitech.exceptions.StudentNotFoundException;
+import com.amalitech.util.AppLogger;
+import com.amalitech.util.ErrorHandler;
+import com.amalitech.util.Validators;
 
 
 import java.io.BufferedWriter;
@@ -34,7 +39,7 @@ public class Main {
     private static final FileExporter FILE_EXPORTER = new FileExporter();
     private static final GPACalculator GPA_CALCULATOR = new GPACalculator();
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws CsvFormatException {
         Scanner scanner = new Scanner(System.in);
         StudentManager studentManager = new StudentManager(50);
         GradeManager gradeManager = new GradeManager(200);
@@ -95,8 +100,19 @@ public class Main {
     private static void addStudent(Scanner scanner, StudentManager studentManager) {
         System.out.println("\nADD STUDENT");
         System.out.println("─".repeat(40));
-        System.out.print("Enter student name: ");
-        String name = scanner.nextLine();
+
+        String name;
+        while (true) {
+            System.out.print("Enter student name: ");
+            String input = scanner.nextLine();
+            try {
+                name = Validators.requireNotBlank("Student name", input);
+                break;
+            } catch (IllegalArgumentException iae) {
+                ErrorHandler.handle("Add Student > name", iae);
+            }
+        }
+
         System.out.print("Enter student age: ");
         int age = Integer.parseInt(scanner.nextLine());
         System.out.print("Enter student email: ");
@@ -162,6 +178,12 @@ public class Main {
         System.out.printf("Average Class Grade: %.2f%n", studentManager.getAverageClassGrade());
         System.out.print("\nPress Enter to continue...");
         new Scanner(System.in).nextLine();
+
+        //log when listing is requested and after printing totals and averages
+        AppLogger.info("View Students invoked; total=" + studentManager.getStudentCount());
+        AppLogger.info(String.format("View Students summary: class average=%.2f",
+                studentManager.getAverageClassGrade()));
+
     }
 
     private static String truncateName(String name) {
@@ -261,29 +283,27 @@ public class Main {
 
 
 
+
         double gradeValue;
         while (true) {
             System.out.print("\nEnter grade (0-100): ");
             String gradeStr = scanner.nextLine().trim();
             try {
                 double g = Double.parseDouble(gradeStr);
-                com.amalitech.util.Validators.requireGradeInRange(g); // may throw InvalidGradeException
+                com.amalitech.util.Validators.requireGradeInRange(g); // throws InvalidGradeException
                 gradeValue = g;
-                break; // valid -> proceed
+                break;
             } catch (NumberFormatException nfe) {
-                System.out.println("\n✗ ERROR: NumberFormatException");
-                System.out.println("  Grade must be a number between 0 and 100.");
-                System.out.println("  You entered: " + gradeStr);
-                System.out.print("\nTry again? (Y/N): ");
-                String retry = scanner.nextLine().trim().toUpperCase();
-                if (!"Y".equals(retry)) return;
+                com.amalitech.util.ErrorHandler.handle("Record Grade > parse number", nfe);
+                if (!retry(scanner)) return;
             } catch (com.amalitech.exceptions.InvalidGradeException ige) {
-                System.out.println("\n✗ ERROR: InvalidGradeException");
-                System.out.println("  " + ige.getMessage());
-                System.out.print("\nTry again? (Y/N): ");
-                String retry = scanner.nextLine().trim().toUpperCase();
-                if (!"Y".equals(retry)) return;
+                com.amalitech.util.ErrorHandler.handle("Record Grade > range check", ige);
+                if (!retry(scanner)) return;
             }
+
+
+
+
 
         }
 
@@ -375,6 +395,15 @@ public class Main {
         System.out.printf("Meeting passing grade requirement (%.0f%%)%n", student.getPassingGrade());
         System.out.print("\nPress Enter to continue...");
         scanner.nextLine();
+
+        //view grade report log
+        AppLogger.info("View Grade Report > requested for student " + studentId);
+        AppLogger.info(String.format("View Grade Report > aggregates for %s: core=%.2f elective=%.2f overall=%.2f",
+                studentId,
+                gradeManager.calculateCoreAverage(studentId),
+                gradeManager.calculateElectiveAverage(studentId),
+                gradeManager.calculateOverallAverage(studentId)));
+
     }
 
 
@@ -531,6 +560,9 @@ public class Main {
 
         System.out.print("\nPress Enter to continue...");
         scanner.nextLine();
+
+        //log normal operation for successful exported report
+        AppLogger.info("Exported grade report for student " + studentId);
     }
 
 
@@ -631,7 +663,15 @@ public class Main {
 
         System.out.print("\nPress Enter to continue...");
         scanner.nextLine();
+
+
+        AppLogger.info("Calculate GPA > requested for " + studentId + " (" + student.getName() + ")");
+        // After computing cumulativeGpa and rank
+        AppLogger.info(String.format("Calculate GPA > result for %s: cumulative=%.2f rank=%d/%d",
+                studentId, cumulativeGpa, rank, totalStudents));
+
     }
+
 
 
     private static void bulkImportGrades(Scanner scanner,
@@ -648,13 +688,19 @@ public class Main {
         System.out.println();
 
         System.out.print("Enter filename (without extension): ");
-        String baseName = scanner.nextLine().trim();
-        if (baseName.isEmpty()) {
-            System.out.println("Filename cannot be empty.");
-            System.out.print("\nPress Enter to continue...");
-            scanner.nextLine();
-            return;
-        }
+
+        String baseName;
+        while (true) {
+            System.out.print("Enter filename (without extension): ");
+            String input = scanner.nextLine();
+            try {
+                baseName = Validators.requireNotBlank("Filename", input);
+                break;
+            } catch (IllegalArgumentException iae) {
+                ErrorHandler.handle("Bulk Import > filename", iae);
+            }
+
+    }
 
         Path importsDir = Paths.get("./imports");
         try {
@@ -693,20 +739,32 @@ public class Main {
         // Read CSV lines
         CSVParser parser = new CSVParser();
         List<String> rawLines = new ArrayList<>();
+
         try (BufferedReader br = Files.newBufferedReader(csvPath, StandardCharsets.UTF_8)) {
             String line;
             while ((line = br.readLine()) != null) {
                 rawLines.add(line);
             }
         } catch (IOException e) {
-            System.out.println("Import failed while reading CSV: " + e.getMessage());
+            com.amalitech.util.ErrorHandler.handle("Bulk Import > read CSV", e);
             System.out.print("\nPress Enter to continue...");
             scanner.nextLine();
             return;
         }
 
+
         // Parse lines (auto-skip header if present)
-        List<String[]> rows = parser.parseLines(rawLines, true);
+
+        List<String[]> rows;
+        try {
+            rows = parser.parseLines(rawLines, true);
+        } catch (com.amalitech.exceptions.CsvFormatException cfe) {
+            // Friendly handling + timestamped logging
+            com.amalitech.util.ErrorHandler.handle("Bulk Import > parse CSV", cfe);
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
 
         // Prepare log writer
         try (BufferedWriter log = Files.newBufferedWriter(logPath, StandardCharsets.UTF_8)) {
@@ -793,6 +851,7 @@ public class Main {
                 // Enroll subject
                 student.enrollSubject(subject);
                 success++;
+
             }
 
             // Write import summary
@@ -993,6 +1052,7 @@ public class Main {
         } else {
             System.out.printf("%s: %6.1f%%%n", subject, 0.0);
         }
+
     }
 
 
@@ -1178,10 +1238,12 @@ public class Main {
         System.out.println(" Size: " + sizeText);
     }
 
-    private static class StudentNotFoundException extends Exception {
-        public StudentNotFoundException(String id) {
-            super("Student with ID '" + id + "' not found in the system.");
-        }
+
+    private static boolean retry(Scanner scanner) {
+        System.out.print("\nTry again? (Y/N): ");
+        String retry = scanner.nextLine().trim().toUpperCase();
+        return "Y".equals(retry);
     }
+
 
 }

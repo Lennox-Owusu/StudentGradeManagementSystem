@@ -1,10 +1,12 @@
 
 package com.amalitech.calculation;
 
+import com.amalitech.interfaces.Calculable;
+
 import java.util.*;
 
 //Performs statistical calculations on numeric data.
-public class StatisticsCalculator {
+public class StatisticsCalculator implements Calculable {
 
     //Arithmetic mean. Returns 0.0 for null/empty input.
     public double mean(List<Double> data) {
@@ -79,4 +81,5 @@ public class StatisticsCalculator {
         }
         return buckets;
     }
+
 }

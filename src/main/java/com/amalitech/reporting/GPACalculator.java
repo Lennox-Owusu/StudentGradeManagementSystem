@@ -1,11 +1,13 @@
 
 package com.amalitech.reporting;
 
+import com.amalitech.interfaces.Calculable;
+
 import java.util.List;
 
 
  //Computes GPA from percentage grades using a 4.0 scale mapping.
-public class GPACalculator {
+public class GPACalculator implements Calculable {
 
 
     public String toLetter(double pct) {
@@ -47,4 +49,5 @@ public class GPACalculator {
         return 0.0;
 
     }
-}
+
+ }

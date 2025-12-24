@@ -1,21 +1,20 @@
 
 package com.amalitech.io;
 
+import com.amalitech.exceptions.CsvFormatException;
 import java.util.ArrayList;
 import java.util.List;
 
-
-//CSVParser: focuses ONLY on parsing CSV lines into columns.
 public class CSVParser {
-
-
-     //Parses raw lines into rows of String[] columns.
-    public List<String[]> parseLines(List<String> lines, boolean hasHeader) {
+    public List<String[]> parseLines(List<String> lines, boolean hasHeader) throws CsvFormatException {
         List<String[]> rows = new ArrayList<>();
         if (lines == null || lines.isEmpty()) return rows;
 
         int start = 0;
-        if (hasHeader && isHeader(lines.get(0))) {
+        if (hasHeader) {
+            if (!isHeader(lines.get(0))) {
+                throw new CsvFormatException("Header must be: StudentID,SubjectName,SubjectType,Grade");
+            }
             start = 1;
         }
 
@@ -26,12 +25,14 @@ public class CSVParser {
             if (line.isEmpty()) continue;
 
             String[] cols = line.split(",", -1);
+            if (cols.length != 4) {
+                throw new CsvFormatException("Row " + (i + 1) + " has " + cols.length + " columns; expected 4.");
+            }
             rows.add(cols);
         }
         return rows;
     }
 
-    //Case-insensitive check for the expected 4-column header.
     private boolean isHeader(String line) {
         if (line == null) return false;
         String lower = line.trim().toLowerCase();
