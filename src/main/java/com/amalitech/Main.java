@@ -26,7 +26,24 @@ import java.time.format.DateTimeFormatter;
 import java.io.BufferedReader;
 import java.util.Scanner;
 
+
+import com.amalitech.concurrent.BackgroundTaskTracker;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+
 public class Main {
+
+
+    // --- Advanced Edition v3.0 concurrency ---
+    private static ExecutorService fixedPool;
+    private static ExecutorService cachedPool;
+    private static ScheduledExecutorService scheduler;
+    private static volatile boolean RUNNING = true;
+
 
     private static final StatisticsCalculator STATS = new StatisticsCalculator();
     //
@@ -44,50 +61,131 @@ public class Main {
         StudentManager studentManager = new StudentManager(50);
         GradeManager gradeManager = new GradeManager(200);
         preloadSampleStudents(studentManager);
+        initExecutors();
+        startBackgroundServices(studentManager, gradeManager);
+
         boolean exit = false;
+
         while (!exit) {
-            System.out.println("\n" +
-                    "╔" + "═".repeat(38) + "╗");
-            System.out.println("║ STUDENT GRADE MANAGEMENT - MAIN MENU ║");
-            System.out.println("╚" + "═".repeat(38) + "╝");
-            System.out.println("\n1. Add Student");
-            System.out.println("2. View Students");
-            System.out.println("3. Record Grade");
-            System.out.println("4. View Grade Report");
-            System.out.println("5. Export Grade Report");
-            System.out.println("6. Calculate Student GPA");
-            System.out.println("7. Bulk Import Grades");
-            System.out.println("8. View Class Statistics");
-            System.out.println("9. Search Students");
-            System.out.println("10. Exit");
-            System.out.print("\nEnter choice: ");
+            printAdvancedMenu();
+            renderPrompt();
+
             int choice;
             try {
-                choice = Integer.parseInt(scanner.nextLine());
+                choice = Integer.parseInt(scanner.nextLine().trim());
             } catch (NumberFormatException e) {
                 System.out.println("Invalid input. Please enter a number.");
                 continue;
             }
-
 
             switch (choice) {
                 case 1 -> addStudent(scanner, studentManager);
                 case 2 -> viewStudents(studentManager);
                 case 3 -> recordGrade(scanner, studentManager, gradeManager);
                 case 4 -> viewGradeReport(scanner, studentManager, gradeManager);
-                case 5 -> exportGradeReport(scanner, studentManager, gradeManager);
-                case 6 -> calculateStudentGPA(scanner, studentManager, gradeManager);
-                case 7 -> bulkImportGrades(scanner, studentManager, gradeManager);
-                case 8 -> viewClassStatistics(scanner, studentManager, gradeManager);
-                case 9 -> searchStudents(scanner, studentManager, gradeManager);
-                case 10 -> { System.out.println("Thank you for using Grade Management System!");
-                    System.out.println("Goodbye!"); exit = true; }
-                default -> System.out.println("Invalid choice. Please select between 1-9.");
-            }
 
+                case 5 -> { /* Export CSV/JSON/Binary — will implement next steps */
+                    System.out.println("Export (multi-format) — coming up in next step.");
+                }
+                case 6 -> { /* Enhanced multi-format import */
+                    System.out.println("Import (multi-format) — coming up in next step.");
+                }
+                case 7 -> bulkImportGrades(scanner, studentManager, gradeManager);
+
+                case 8 -> calculateStudentGPA(scanner, studentManager, gradeManager);
+                case 9 -> viewClassStatistics(scanner, studentManager, gradeManager);
+                case 10 -> { /* Real-time dashboard (NEW) */
+                    System.out.println("Real-Time Statistics Dashboard — to be implemented.");
+                }
+                case 11 -> { /* Batch reports (NEW) */
+                    System.out.println("Generate Batch Reports — to be implemented.");
+                }
+
+                case 12 -> { /* Advanced search (ENHANCED) */
+                    searchStudents(scanner, studentManager, gradeManager);
+                }
+                case 13 -> { /* Pattern-based search (NEW) */
+                    System.out.println("Pattern-Based Search — to be implemented.");
+                }
+                case 14 -> { /* Query grade history (NEW) */
+                    System.out.println("Query Grade History — to be implemented.");
+                }
+
+                case 15 -> { /* Scheduled automated tasks (NEW) */
+                    System.out.println("Schedule Automated Tasks — to be implemented.");
+                }
+                case 16 -> { /* View system performance (NEW) */
+                    System.out.println("View System Performance — to be implemented.");
+                }
+                case 17 -> { /* Cache management (NEW) */
+                    System.out.println("Cache Management — to be implemented.");
+                }
+                case 18 -> { /* Audit trail viewer (NEW) */
+                    System.out.println("Audit Trail Viewer — to be implemented.");
+                }
+                case 19 -> {
+                    System.out.println("Thank you for using Grade Management System!");
+                    System.out.println("Goodbye!");
+                    exit = true;
+                }
+                default -> System.out.println("Invalid choice. Please select 1–19.");
+            }
         }
         scanner.close();
+        shutdownExecutors();
+
     }
+
+
+    private static void printAdvancedMenu() {
+        System.out.println();
+        System.out.println("┌───────────────────────────────────────────────────────┐");
+        System.out.println("│ STUDENT GRADE MANAGEMENT - MAIN MENU                  │");
+        System.out.println("│ [Advanced Edition v3.0]                               │");
+        System.out.println("└───────────────────────────────────────────────────────┘");
+
+        System.out.println();
+        System.out.println("STUDENT MANAGEMENT");
+        System.out.println("  1. Add Student (with validation)");
+        System.out.println("  2. View Students");
+        System.out.println("  3. Record Grade");
+        System.out.println("  4. View Grade Report");
+
+        System.out.println();
+        System.out.println("FILE OPERATIONS");
+        System.out.println("  5. Export Grade Report (CSV/JSON/Binary)");
+        System.out.println("  6. Import Data (Multi-format support)   [ENHANCED]");
+        System.out.println("  7. Bulk Import Grades");
+
+        System.out.println();
+        System.out.println("ANALYTICS & REPORTING");
+        System.out.println("  8.  Calculate Student GPA");
+        System.out.println("  9.  View Class Statistics");
+        System.out.println(" 10. Real-Time Statistics Dashboard       [NEW]");
+        System.out.println(" 11. Generate Batch Reports               [NEW]");
+
+        System.out.println();
+        System.out.println("SEARCH & QUERY");
+        System.out.println(" 12. Search Students (Advanced)           [ENHANCED]");
+        System.out.println(" 13. Pattern-Based Search                 [NEW]");
+        System.out.println(" 14. Query Grade History                  [NEW]");
+
+        System.out.println();
+        System.out.println("ADVANCED FEATURES");
+        System.out.println(" 15. Schedule Automated Tasks             [NEW]");
+        System.out.println(" 16. View System Performance              [NEW]");
+        System.out.println(" 17. Cache Management                     [NEW]");
+        System.out.println(" 18. Audit Trail Viewer                   [NEW]");
+        System.out.println(" 19. Exit");
+    }
+
+    /** Prints the status line shown in your screenshot and the input prompt. */
+    private static void renderPrompt() {
+        System.out.println();
+        System.out.println(BackgroundTaskTracker.statusLine());
+        System.out.print("\nEnter choice: ");
+    }
+
 
     private static void preloadSampleStudents(StudentManager studentManager) {
         studentManager.addStudent(new RegularStudent("Alice Johnson", 16, "alice@school.edu", "0241108345"));
@@ -149,6 +247,71 @@ public class Main {
         System.out.print("\nPress Enter to continue...");
         scanner.nextLine();
     }
+
+
+    private static void initExecutors() {
+        // Fixed pool for bounded concurrent work (e.g., batch reports)
+        fixedPool = Executors.newFixedThreadPool(4);
+        // Cached pool for bursty background activity (e.g., on-demand tasks)
+        cachedPool = Executors.newCachedThreadPool();
+        // Scheduler for periodic tasks (e.g., real-time stats updates)
+        scheduler = Executors.newScheduledThreadPool(2);
+    }
+
+    /** Starts background tasks so the status line shows activity. */
+    private static void startBackgroundServices(StudentManager studentManager, GradeManager gradeManager) {
+        // 1) Real-time stats updater (periodic)
+        scheduler.scheduleAtFixedRate(() -> {
+            BackgroundTaskTracker.incrementActive();
+            BackgroundTaskTracker.setStatsUpdating(true);
+            try {
+                // Compute something lightweight to simulate live stats refresh
+                double classAvg = studentManager.getAverageClassGrade();
+                com.amalitech.util.AppLogger.info(String.format("Stats refresh: classAvg=%.2f", classAvg));
+            } catch (Exception e) {
+                com.amalitech.util.AppLogger.error("Stats updater failed", e);
+            } finally {
+                BackgroundTaskTracker.setStatsUpdating(false);
+                BackgroundTaskTracker.decrementActive();
+            }
+        }, 0, 3, TimeUnit.SECONDS);
+
+        // 2) Long-running background worker (simulates audit writer)
+        cachedPool.submit(() -> {
+            BackgroundTaskTracker.incrementActive();
+            try {
+                while (RUNNING) {
+                    // Simulate periodic work
+                    Thread.sleep(4000);
+                }
+            } catch (InterruptedException ignored) {
+            } finally {
+                BackgroundTaskTracker.decrementActive();
+            }
+        });
+
+        // 3) Long-running background worker (simulates directory watcher)
+        fixedPool.submit(() -> {
+            BackgroundTaskTracker.incrementActive();
+            try {
+                while (RUNNING) {
+                    // Simulate periodic work
+                    Thread.sleep(5000);
+                }
+            } catch (InterruptedException ignored) {
+            } finally {
+                BackgroundTaskTracker.decrementActive();
+            }
+        });
+    }
+
+    private static void shutdownExecutors() {
+        RUNNING = false;
+        if (scheduler != null) scheduler.shutdownNow();
+        if (cachedPool != null) cachedPool.shutdownNow();
+        if (fixedPool != null) fixedPool.shutdownNow();
+    }
+
 
     private static void viewStudents(StudentManager studentManager) {
         if (studentManager.getStudentCount() == 0) {
