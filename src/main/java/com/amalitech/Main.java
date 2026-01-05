@@ -26,6 +26,19 @@ import java.time.format.DateTimeFormatter;
 import java.io.BufferedReader;
 import java.util.Scanner;
 
+//UI
+import com.amalitech.ui.MainMenuRenderer;
+import com.amalitech.ui.MenuController;
+import com.amalitech.ui.CoreMenuHandlers;
+
+
+//import com.amalitech.ui.ConsoleStatusRenderer;
+//import com.amalitech.concurrency.TaskExecutors;
+//import com.amalitech.concurrency.BackgroundTaskRegistry;
+//import com.amalitech.concurrency.BackgroundTaskRunner;
+
+
+
 public class Main {
 
     private static final StatisticsCalculator STATS = new StatisticsCalculator();
@@ -43,7 +56,41 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
         StudentManager studentManager = new StudentManager(50);
         GradeManager gradeManager = new GradeManager(200);
+
         preloadSampleStudents(studentManager);
+
+// 1) Create the UI renderer(s)
+        MainMenuRenderer menuRenderer = new MainMenuRenderer();
+
+// (Optional) If you already have status scaffolding, create them and renderer:
+        TaskExecutors executors = /* new TaskExecutors() */ null;             // only if you’ve added it
+        BackgroundTaskRegistry registry = /* new BackgroundTaskRegistry() */ null;
+        BackgroundTaskRunner runner = /* new BackgroundTaskRunner(executors, registry) */ null;
+        ConsoleStatusRenderer statusRenderer = /* new ConsoleStatusRenderer() */ null;
+
+// 2) Create your CoreMenuHandlers implementation
+// If you created a concrete class (e.g., CoreMenuHandlersImpl), use it:
+        CoreMenuHandlers handlers = new CoreMenuHandlersImpl(
+                scanner, studentManager, gradeManager, runner // adapt ctor params if different
+        );
+
+// If you did NOT create a concrete class, you can use an anonymous inner implementation instead:
+// CoreMenuHandlers handlers = new CoreMenuHandlers() {
+//     @Override public void addStudent() { Main.addStudent(scanner, studentManager); }
+//     @Override public void viewStudents() { Main.viewStudents(studentManager); }
+//     @Override public void recordGrade() { Main.recordGrade(scanner, studentManager, gradeManager); }
+//     @Override public void viewGradeReport() { Main.viewGradeReport(scanner, studentManager, gradeManager); }
+//     @Override public void exportGradeReport() { Main.exportGradeReport(scanner, studentManager, gradeManager); }
+//     @Override public void exportGradeReportMultiFormat() { /* call your new multi-format method when ready */ }
+//     @Override public void calculateStudentGpa() { Main.calculateStudentGPA(scanner, studentManager, gradeManager); }
+//     @Override public void bulkImportGrades() { Main.bulkImportGrades(scanner, studentManager, gradeManager); }
+//     @Override public void viewClassStatistics() { Main.viewClassStatistics(scanner, studentManager, gradeManager); }
+//     @Override public void searchStudents() { Main.searchStudents(scanner, studentManager, gradeManager); }
+// };
+
+// 3) Create the controller with handlers
+        MenuController controller = new MenuController(handlers);
+
         boolean exit = false;
         while (!exit) {
             System.out.println("\n" +
