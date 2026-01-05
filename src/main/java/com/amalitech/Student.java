@@ -85,4 +85,8 @@ public abstract class Student implements Gradable {
     public List<Double> getGrades() {
         return new ArrayList<>(grades);
     }
+
+    public String getPhone() {
+        return "";
+    }
 }
