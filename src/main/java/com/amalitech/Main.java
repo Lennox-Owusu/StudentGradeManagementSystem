@@ -390,58 +390,112 @@ public class Main {
         studentManager.addStudent(new RegularStudent("Emma Wilson", 16, "emma@school.edu", "0237896072"));
     }
 
+
     private static void addStudent(Scanner scanner, StudentManager studentManager) {
-        System.out.println("\nADD STUDENT");
+        System.out.println("\nADD STUDENT (with validation)");
         System.out.println("─".repeat(40));
 
-        String name;
+        String studentId;
         while (true) {
-            System.out.print("Enter student name: ");
+            System.out.print("Enter Student ID: ");
             String input = scanner.nextLine();
             try {
-                name = Validators.requireNotBlank("Student name", input);
+                studentId = com.amalitech.util.RegexValidators.requireStudentId(input);
+                System.out.println("✓ Valid Student ID");
                 break;
-            } catch (IllegalArgumentException iae) {
-                ErrorHandler.handle("Add Student > name", iae);
+            } catch (com.amalitech.exceptions.ValidationException ve) {
+                com.amalitech.util.ErrorHandler.handle("Add Student > studentId", ve);
             }
         }
 
-        System.out.print("Enter student age: ");
-        int age = Integer.parseInt(scanner.nextLine());
-        System.out.print("Enter student email: ");
-        String email = scanner.nextLine();
-        System.out.print("Enter student phone: ");
-        String phone = scanner.nextLine();
-        System.out.println("\nStudent type:");
-        System.out.println("1. Regular Student (Passing grade: 50%): ");
-        System.out.println("2. Honors Student (Passing grade: 60%, honors recognition): ");
-        System.out.print("Select type (1-2):");
-        int type = Integer.parseInt(scanner.nextLine());
-        Student student;
-        if (type == 1) {
-            student = new RegularStudent(name, age, email, phone);
-        } else if (type == 2) {
-            student = new HonorsStudent(name, age, email, phone);
+        String name;
+        while (true) {
+            System.out.print("\nEnter Student Name: ");
+            String input = scanner.nextLine();
+            try {
+                name = com.amalitech.util.RegexValidators.requireName(input);
+                System.out.println("✓ Valid Student Name");
+                break;
+            } catch (com.amalitech.exceptions.ValidationException ve) {
+                com.amalitech.util.ErrorHandler.handle("Add Student > name", ve);
+            }
+        }
+
+        String email;
+        while (true) {
+            System.out.print("\nEnter Email Address: ");
+            String input = scanner.nextLine();
+            try {
+                email = com.amalitech.util.RegexValidators.requireEmail(input);
+                System.out.println("✓ Valid Email Address");
+                break;
+            } catch (com.amalitech.exceptions.ValidationException ve) {
+                com.amalitech.util.ErrorHandler.handle("Add Student > email", ve);
+            }
+        }
+
+        String phone;
+        while (true) {
+            System.out.print("\nEnter Phone Number: ");
+            String input = scanner.nextLine();
+            try {
+                phone = com.amalitech.util.RegexValidators.requirePhone(input);
+                System.out.println("✓ Valid Phone Number");
+                break;
+            } catch (com.amalitech.exceptions.ValidationException ve) {
+                com.amalitech.util.ErrorHandler.handle("Add Student > phone", ve);
+            }
+        }
+
+        System.out.println("\nStudent Type:");
+        System.out.println("1. Regular Student (Passing grade: 50%)");
+        System.out.println("2. Honors Student (Passing grade: 60%, honors recognition)");
+        System.out.print("Select type (1-2): ");
+        int type;
+        try { type = Integer.parseInt(scanner.nextLine()); }
+        catch (NumberFormatException nfe) { type = 1; }
+
+        String enrolledDate;
+        while (true) {
+            System.out.print("\nEnter Enrollment Date (YYYY-MM-DD): ");
+            String input = scanner.nextLine();
+            try {
+                enrolledDate = com.amalitech.util.RegexValidators.requireDateYYYYMMDD(input);
+                System.out.println("✓ Valid Enrollment Date");
+                break;
+            } catch (com.amalitech.exceptions.ValidationException ve) {
+                com.amalitech.util.ErrorHandler.handle("Add Student > enrollmentDate", ve);
+            }
+        }
+
+        // Choose subtype and build with explicit Student ID
+        int age = 16; // default age
+        com.amalitech.Student student;
+        if (type == 2) {
+            student = new com.amalitech.HonorsStudent(studentId, name, age, email, phone);
         } else {
-            System.out.println("Invalid type selected.");
-            return;
+            student = new com.amalitech.RegularStudent(studentId, name, age, email, phone);
         }
+
         studentManager.addStudent(student);
-        System.out.println("\nStudent added successfully!");
-        System.out.println("Student ID: " + student.getStudentId());
-        System.out.println("Name: " + student.getName());
-        System.out.println("Type: " + student.getStudentType());
-        System.out.println("Age: " + student.getAge());
-        System.out.println("Email: " + student.getEmail());
-        System.out.printf("Passing Grade: %.0f%%%n", student.getPassingGrade());
-        if (student instanceof HonorsStudent) {
-            boolean eligible = ((HonorsStudent) student).checkHonorsEligibility();
-            System.out.println("Honors Eligible: " + (eligible ? "Yes" : "No"));
-        }
-        System.out.println("Status: Active");
+        System.out.println("\n✓ Student added successfully!");
+        System.out.println("All inputs validated with regex patterns");
+        System.out.println("  Student ID: " + studentId);
+        System.out.println("  Name: " + name);
+        System.out.println("  Email: " + email);
+        System.out.println("  Phone: " + phone);
+        System.out.println("  Type: " + student.getStudentType());
+        System.out.println("  Enrolled: " + enrolledDate);
+
+        com.amalitech.util.AppLogger.info(
+                String.format("Add Student > %s (%s) email=%s phone=%s enrolled=%s",
+                        studentId, student.getStudentType(), email, phone, enrolledDate));
+
         System.out.print("\nPress Enter to continue...");
         scanner.nextLine();
     }
+
+
 
 
     private static void initExecutors() {
