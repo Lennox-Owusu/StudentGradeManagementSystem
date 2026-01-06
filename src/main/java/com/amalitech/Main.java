@@ -7,6 +7,7 @@ import com.amalitech.reporting.GPACalculator;
 import com.amalitech.io.CSVParser;
 import com.amalitech.calculation.StatisticsCalculator;
 import com.amalitech.exceptions.StudentNotFoundException;
+import com.amalitech.reporting.ReportType;
 import com.amalitech.util.AppLogger;
 import com.amalitech.util.ErrorHandler;
 import com.amalitech.util.Validators;
@@ -37,6 +38,80 @@ import java.util.concurrent.TimeUnit;
 
 public class Main {
 
+      //Helper method for import data case 6
+    private static void importData(Scanner scanner, StudentManager studentManager, GradeManager gradeManager) {
+        System.out.println("\nIMPORT DATA (Multi-format)");
+        System.out.println("────────────────────────────────────────────");
+
+        Path importsDir = Paths.get("./imports");
+        try {
+            if (!Files.exists(importsDir)) Files.createDirectories(importsDir);
+        } catch (IOException io) {
+            System.out.println("Failed to prepare ./imports directory: " + io.getMessage());
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
+
+        System.out.println("\nSupported formats:");
+        System.out.println(" 1. CSV detailed report (*.csv)");
+        System.out.println(" 2. JSON detailed report (*.json)");
+        System.out.println(" 3. Binary report (*.dat)");
+        System.out.println(" 4. Auto-detect by file extension");
+        System.out.print("\nSelect format (1-4): ");
+        int fsel;
+        try { fsel = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { fsel = 4; }
+
+        com.amalitech.io.ImportCoordinator.Format format =
+                switch (fsel) {
+                    case 1 -> com.amalitech.io.ImportCoordinator.Format.CSV;
+                    case 2 -> com.amalitech.io.ImportCoordinator.Format.JSON;
+                    case 3 -> com.amalitech.io.ImportCoordinator.Format.BINARY;
+                    default -> com.amalitech.io.ImportCoordinator.Format.AUTO;
+                };
+
+        System.out.print("\nEnter filename (including extension) in ./imports: ");
+        String fileName = scanner.nextLine().trim();
+        if (fileName.isEmpty()) {
+            System.out.println("No filename provided.");
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
+
+        Path path = importsDir.resolve(fileName);
+        if (!Files.exists(path) || !Files.isRegularFile(path)) {
+            System.out.println("File not found: " + path.toAbsolutePath());
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
+
+        var coordinator = new com.amalitech.io.ImportCoordinator();
+        try {
+            var t0 = java.time.Instant.now();
+            com.amalitech.reporting.StudentReport report = coordinator.loadReport(path, format);
+            coordinator.mergeIntoSystem(report, studentManager, gradeManager);
+            var ms = java.time.Duration.between(t0, java.time.Instant.now()).toMillis();
+
+            System.out.println("\n✓ Import completed");
+            System.out.println(" Source: " + path.getFileName());
+            System.out.println(" Student: " + report.getStudentId() + " - " + report.getName());
+            System.out.println(" Grades imported: " + report.getTotalGrades());
+            System.out.println(" Time: " + ms + "ms");
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+
+            com.amalitech.util.AppLogger.info("Import completed for " + report.getStudentId()
+                    + " from " + path.getFileName() + " in " + ms + "ms");
+        } catch (com.amalitech.exceptions.DomainException ex) {
+            com.amalitech.util.ErrorHandler.handle("Import Data", ex);
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+        }
+    }
+
+
 
     // --- Advanced Edition v3.0 concurrency ---
     private static ExecutorService fixedPool;
@@ -44,9 +119,11 @@ public class Main {
     private static ScheduledExecutorService scheduler;
     private static volatile boolean RUNNING = true;
 
-
+   //Helpers
+    private static String kb(long bytes) {
+        return String.format("%.1f KB", bytes / 1024.0);
+    }
     private static final StatisticsCalculator STATS = new StatisticsCalculator();
-    //
     private static String safeTrim(String s) {
         return (s == null) ? "" : s.trim();
     }
@@ -78,18 +155,136 @@ public class Main {
                 continue;
             }
 
+
+
             switch (choice) {
                 case 1 -> addStudent(scanner, studentManager);
                 case 2 -> viewStudents(studentManager);
                 case 3 -> recordGrade(scanner, studentManager, gradeManager);
                 case 4 -> viewGradeReport(scanner, studentManager, gradeManager);
+                case 5 -> {
+                    System.out.println("\nEXPORT GRADE REPORT (Multi-Format)");
+                    System.out.println("────────────────────────────────────");
 
-                case 5 -> { /* Export CSV/JSON/Binary — will implement next steps */
-                    System.out.println("Export (multi-format) — coming up in next step.");
+                    System.out.print("\nEnter Student ID: ");
+                    String studentId = scanner.nextLine().trim().toUpperCase();
+                    Student student = studentManager.findStudent(studentId);
+                    if (student == null) {
+                        System.out.println("Student not found!");
+                        System.out.print("\nPress Enter to continue...");
+                        scanner.nextLine();
+                        break;
+                    }
+
+                    // Gather grades for this student
+                    java.util.ArrayList<Grade> list = new java.util.ArrayList<>();
+                    for (int i = 0; i < gradeManager.getGradeCount(); i++) {
+                        Grade g = gradeManager.getGradeAt(i);
+                        if (g != null && g.getStudentId().equalsIgnoreCase(studentId)) {
+                            list.add(g);
+                        }
+                    }
+
+                    System.out.println();
+                    System.out.println("Student: " + student.getStudentId() + " - " + student.getName() +
+                            " (" + student.getEmail() + ")");
+                    System.out.println("Type: " + student.getStudentType() + " | Phone: +1-555-0123"); // demo phone as in screenshot
+                    System.out.println("Total Grades: " + list.size());
+
+                    // --- Export choices (format + report type) ---
+                    System.out.println();
+                    System.out.println("Export Format:");
+                    System.out.println(" 1. CSV (Comma-Separated Values)");
+                    System.out.println(" 2. JSON (JavaScript Object Notation)");
+                    System.out.println(" 3. Binary (Serialized Java Object)");
+                    System.out.println(" 4. All formats");
+                    System.out.print("\nSelect format (1-4): ");
+                    int fmt;
+                    try { fmt = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { fmt = 4; }
+
+                    System.out.println("\nReport Type:");
+                    System.out.println(" 1. Summary Report");
+                    System.out.println(" 2. Detailed Report");
+                    System.out.println(" 3. Transcript Format");
+                    System.out.println(" 4. Performance Analytics");
+                    System.out.print("\nSelect type (1-4): ");
+                    int rtype;
+                    try { rtype = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { rtype = 2; }
+
+                    // For now we implement Detailed Report (matches screenshot); others can be added next steps.
+                    System.out.println("\nProcessing with NIO.2 Streaming...");
+                    com.amalitech.util.AppLogger.info("Export report requested for " + studentId + " format=" + fmt + " type=" + rtype);
+
+                    // Build StudentReport DTO
+                    double coreAvg = gradeManager.calculateCoreAverage(studentId);
+                    double elecAvg = gradeManager.calculateElectiveAverage(studentId);
+                    double overallAvg = gradeManager.calculateOverallAverage(studentId);
+                    com.amalitech.reporting.StudentReport report =
+                            new com.amalitech.reporting.StudentReport(student, list, coreAvg, elecAvg, overallAvg, "+1-555-0123");
+
+                    // Coordinator
+                    com.amalitech.io.ExportCoordinator coordinator = new com.amalitech.io.ExportCoordinator();
+                    java.nio.file.Path reportsDir = java.nio.file.Paths.get("./reports");
+
+                    boolean doCsv = (fmt == 1 || fmt == 4);
+                    boolean doJson = (fmt == 2 || fmt == 4);
+                    boolean doBin = (fmt == 3 || fmt == 4);
+
+                    // Base name
+                    String baseName = student.getName().toLowerCase().replaceAll("\\s+", "_") + "_detailed";
+
+                    try {
+                        var perf = coordinator.exportAll(report, reportsDir, baseName,doCsv,doJson,doBin);
+
+                        // Show per-format completion (only those selected)
+                        if (doCsv) {
+                            System.out.println("\n✓ CSV Export completed");
+                            System.out.println(" File: " + baseName + ".csv");
+                            System.out.println(" Location: ./reports/csv/");
+                            System.out.println(" Size: " + kb(perf.csvBytes));
+                            System.out.println(" Rows: " + list.size() + " grades + header");
+                            System.out.println(" Time: " + perf.csvMillis + "ms");
+                        }
+                        if (doJson) {
+                            System.out.println("\n✓ JSON Export completed");
+                            System.out.println(" File: " + baseName + ".json");
+                            System.out.println(" Location: ./reports/json/");
+                            System.out.println(" Size: " + kb(perf.jsonBytes));
+                            System.out.println(" Structure: Nested objects with metadata");
+                            System.out.println(" Time: " + perf.jsonMillis + "ms");
+                        }
+                        if (doBin) {
+                            System.out.println("\n✓ Binary Export completed");
+                            System.out.println(" File: " + baseName + ".dat");
+                            System.out.println(" Location: ./reports/binary/");
+                            System.out.println(" Size: " + kb(perf.binBytes) + " (compressed)");
+                            System.out.println(" Format: Serialized StudentReport object");
+                            System.out.println(" Time: " + perf.binMillis + "ms");
+                        }
+
+                        // Performance summary
+                        System.out.println("\n📊 Export Performance Summary:");
+                        System.out.println(" Total Time: " + perf.totalMillis + "ms");
+                        System.out.println(" Total Size: " + kb(perf.totalBytes));
+                        System.out.println(" Compression Ratio: " + perf.compressionRatio());
+                        int ops = (doCsv ? 1 : 0) + (doJson ? 1 : 0) + (doBin ? 1 : 0);
+                        System.out.println(" I/O Operations: " + ops + " parallel writes");
+
+                    } catch (com.amalitech.exceptions.ExportFailedException e) {
+                        System.out.println("\n✗ Export failed: " + e.getMessage());
+                        com.amalitech.util.AppLogger.error("Export failure", e);
+                    }
+
+                    System.out.print("\nPress Enter to continue...");
+                    scanner.nextLine();
                 }
-                case 6 -> { /* Enhanced multi-format import */
-                    System.out.println("Import (multi-format) — coming up in next step.");
-                }
+
+                case 6 -> { // Import Data (Multi-format support) [ENHANCED]
+                    importData(scanner, studentManager, gradeManager);
+
+
+
+            }
                 case 7 -> bulkImportGrades(scanner, studentManager, gradeManager);
 
                 case 8 -> calculateStudentGPA(scanner, studentManager, gradeManager);
@@ -917,7 +1112,6 @@ public class Main {
 
 
         // Parse lines (auto-skip header if present)
-
         List<String[]> rows;
         try {
             rows = parser.parseLines(rawLines, true);

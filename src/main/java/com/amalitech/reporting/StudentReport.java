@@ -8,7 +8,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-//Serializable DTO used by all exporters (CSV/JSON/Binary).
+/** Serializable DTO used by all exporters (CSV/JSON/Binary). */
 public final class StudentReport implements Serializable {
     private static final long serialVersionUID = 1L;
 
