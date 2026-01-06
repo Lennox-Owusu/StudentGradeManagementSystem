@@ -122,7 +122,13 @@ public class Main {
     private static ScheduledExecutorService scheduler;
     private static volatile boolean RUNNING = true;
 
-   //Helpers
+
+    // Simple phone directory so we can search by area code
+    private static final java.util.concurrent.ConcurrentHashMap<String, String> PHONEBOOK =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+
+    //Helpers
     private static String kb(long bytes) {
         return String.format("%.1f KB", bytes / 1024.0);
     }
@@ -310,9 +316,8 @@ public class Main {
                 case 12 -> { /* Advanced search (ENHANCED) */
                     searchStudents(scanner, studentManager, gradeManager);
                 }
-                case 13 -> { /* Pattern-based search (NEW) */
-                    System.out.println("Pattern-Based Search — to be implemented.");
-                }
+                case 13 -> patternBasedSearch(scanner, studentManager, gradeManager);
+
                 case 14 -> { /* Query grade history (NEW) */
                     System.out.println("Query Grade History — to be implemented.");
                 }
@@ -394,12 +399,28 @@ public class Main {
 
 
     private static void preloadSampleStudents(StudentManager studentManager) {
-        studentManager.addStudent(new RegularStudent("Alice Johnson", 16, "alice@school.edu", "0241108345"));
-        studentManager.addStudent(new HonorsStudent("Bob Smith", 17, "bob@school.edu", "0256521345"));
-        studentManager.addStudent(new RegularStudent("Carol Martinez", 15, "carol@school.edu", "0545678345"));
-        studentManager.addStudent(new HonorsStudent("David Chen", 18, "david@school.edu", "0536789435"));
-        studentManager.addStudent(new RegularStudent("Emma Wilson", 16, "emma@school.edu", "0237896072"));
+        Student s1 = new RegularStudent("Alice Johnson", 16, "alice@school.edu", "0241108345");
+        studentManager.addStudent(s1);
+        PHONEBOOK.put(s1.getStudentId(), "0241108345");
+
+        Student s2 = new HonorsStudent("Bob Smith", 17, "bob@school.edu", "0256521345");
+        studentManager.addStudent(s2);
+        PHONEBOOK.put(s2.getStudentId(), "0256521345");
+
+        Student s3 = new RegularStudent("Carol Martinez", 15, "carol@school.edu", "0545678345");
+        studentManager.addStudent(s3);
+        PHONEBOOK.put(s3.getStudentId(), "0545678345");
+
+        Student s4 = new HonorsStudent("David Chen", 18, "david@school.edu", "0545678907");
+        studentManager.addStudent(s4);
+        PHONEBOOK.put(s3.getStudentId(), "0545678345");
+
+        Student s5 = new HonorsStudent("Emma Wilson", 16, "emma@school.edu", "0275678345");
+        studentManager.addStudent(s5);
+        PHONEBOOK.put(s3.getStudentId(), "0545678345");
+
     }
+
 
 
     private static void addStudent(Scanner scanner, StudentManager studentManager) {
@@ -1672,6 +1693,339 @@ public class Main {
             System.out.printf("%s: %6.1f%%%n", subject, 0.0);
         }
 
+    }
+
+
+    private static void patternBasedSearch(Scanner scanner,
+                                           StudentManager studentManager,
+                                           GradeManager gradeManager) {
+        while (true) {
+            System.out.println("\nPATTERN-BASED SEARCH");
+            System.out.println("─".repeat(40));
+            System.out.println("\nSearch Type:");
+            System.out.println(" 1. Email Domain Pattern (e.g., @university.edu)");
+            System.out.println(" 2. Phone Area Code Pattern (e.g., 555)");
+            System.out.println(" 3. Student ID Pattern (wildcards: * and ?)");
+            System.out.println(" 4. Name Pattern (regex)");
+            System.out.println(" 5. Custom Regex Pattern");
+            System.out.print("\nSelect type (1-5): ");
+            int type;
+            try { type = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { type = 1; }
+
+            String raw = "";
+            String fieldLabel = "";
+            java.util.regex.Pattern pattern;
+
+            try {
+                switch (type) {
+                    case 1 -> { // Email domain
+                        System.out.print("\nEnter email domain pattern: ");
+                        raw = scanner.nextLine().trim();
+                        // Convert to regex that ends with the domain; escape dots
+                        String rx = ".*" + java.util.regex.Pattern.quote(raw) + "$";
+                        pattern = java.util.regex.Pattern.compile(rx, java.util.regex.Pattern.CASE_INSENSITIVE);
+                        fieldLabel = "email";
+                        System.out.println("Searching with regex: " + rx);
+                    }
+                    case 2 -> { // Phone area code
+                        System.out.print("\nEnter 3-digit area code (e.g., 555): ");
+                        raw = scanner.nextLine().trim();
+                        String ac = java.util.regex.Pattern.quote(raw);
+                        // Accept common formats: (555) 123-4567 | 555-123-4567 | +X-555-123-4567 | 5551234567
+                        String rx = "^(\\(" + ac + "\\) \\d{3}-\\d{4}|"
+                                + ac + "-\\d{3}-\\d{4}|"
+                                + "\\+\\d{1,3}-" + ac + "-\\d{3}-\\d{4}|"
+                                + ac + "\\d{7})$";
+                        pattern = java.util.regex.Pattern.compile(rx);
+                        fieldLabel = "phone";
+                        System.out.println("Searching phonebook with regex: " + rx);
+                    }
+                    case 3 -> { // Student ID with wildcards (* -> .*, ? -> .)
+                        System.out.print("\nEnter ID pattern (e.g., STU* or STU???): ");
+                        raw = scanner.nextLine().trim().toUpperCase();
+                        String rx = "^" + raw.replace(".", "\\.")
+                                .replace("*", ".*")
+                                .replace("?", ".") + "$";
+                        pattern = java.util.regex.Pattern.compile(rx, java.util.regex.Pattern.CASE_INSENSITIVE);
+                        fieldLabel = "id";
+                        System.out.println("Searching with regex: " + rx);
+                    }
+                    case 4 -> { // Name regex
+                        System.out.print("\nEnter name regex (e.g., ^[A-Z][a-z]+\\s[A-Z][a-z]+$): ");
+                        raw = scanner.nextLine().trim();
+                        pattern = java.util.regex.Pattern.compile(raw, java.util.regex.Pattern.CASE_INSENSITIVE);
+                        fieldLabel = "name";
+                        System.out.println("Searching with regex: " + raw);
+                    }
+                    case 5 -> { // Custom regex: choose field
+                        System.out.println("\nTarget Field for Custom Pattern:");
+                        System.out.println(" 1. ID");
+                        System.out.println(" 2. Name");
+                        System.out.println(" 3. Email");
+                        System.out.println(" 4. Phone");
+                        System.out.print("Select field (1-4): ");
+                        int fsel;
+                        try { fsel = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { fsel = 3; }
+                        fieldLabel = switch (fsel) {
+                            case 1 -> "id";
+                            case 2 -> "name";
+                            case 3 -> "email";
+                            case 4 -> "phone";
+                            default -> "email";
+                        };
+                        System.out.print("Enter regex: ");
+                        raw = scanner.nextLine().trim();
+                        pattern = java.util.regex.Pattern.compile(raw, java.util.regex.Pattern.CASE_INSENSITIVE);
+                        System.out.println("Searching " + fieldLabel + " with regex: " + raw);
+                    }
+                    default -> {
+                        // Default to email domain
+                        raw = "@school.edu";
+                        String rx = ".*" + java.util.regex.Pattern.quote(raw) + "$";
+                        pattern = java.util.regex.Pattern.compile(rx, java.util.regex.Pattern.CASE_INSENSITIVE);
+                        fieldLabel = "email";
+                        System.out.println("Searching with regex: " + rx);
+                    }
+                }
+            } catch (java.util.regex.PatternSyntaxException pse) {
+                System.out.println("\nInvalid regex: " + pse.getMessage());
+                System.out.print("\nPress Enter to continue...");
+                scanner.nextLine();
+                return;
+            }
+
+            //Execute search
+            Student[] all = studentManager.getStudents();
+            long t0 = System.nanoTime();
+            java.util.List<Student> results = new java.util.ArrayList<>();
+
+            for (Student s : all) {
+                String id = s.getStudentId();
+                String nm = s.getName();
+                String em = s.getEmail();
+                String ph = PHONEBOOK.getOrDefault(id, "");
+
+                String target = switch (fieldLabel) {
+                    case "id"    -> id;
+                    case "name"  -> nm;
+                    case "email" -> em;
+                    case "phone" -> ph;
+                    default      -> em;
+                };
+
+                if (target != null && pattern.matcher(target).find()) {
+                    results.add(s);
+                }
+            }
+
+            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+
+            //Render results table
+            System.out.println("\nSEARCH RESULTS (" + results.size() + " found)");
+            System.out.println("─".repeat(40));
+            System.out.printf("%-8s │ %-18s │ %-28s%n", "STU ID", "NAME", "EMAIL");
+            System.out.println("─".repeat(40));
+            for (Student s : results) {
+                System.out.printf("%-8s │ %-18s │ %-28s%n", s.getStudentId(), truncateName(s.getName()), s.getEmail());
+            }
+            System.out.println("─".repeat(40));
+
+            //Stats block
+            int totalScanned = all.length;
+            int matches = results.size();
+            double pct = totalScanned == 0 ? 0.0 : (matches * 100.0 / totalScanned);
+            System.out.println("\nPattern Match Statistics:");
+            System.out.printf("  Total Students Scanned: %d%n", totalScanned);
+            System.out.printf("  Matches Found: %d (%.0f%%)%n", matches, pct);
+            System.out.printf("  Search Time: %dms%n", elapsedMs);
+            System.out.println("  Regex Complexity: O(n)");
+
+            // --- Email domain distribution (if email-based search) ---
+            if ("email".equals(fieldLabel) && !results.isEmpty()) {
+                java.util.Map<String, Integer> domainCounts = new java.util.HashMap<>();
+                for (Student s : results) {
+                    String em = s.getEmail();
+                    int at = (em == null) ? -1 : em.indexOf('@');
+                    String dom = (at >= 0) ? em.substring(at) : "(none)";
+                    domainCounts.put(dom, domainCounts.getOrDefault(dom, 0) + 1);
+                }
+                System.out.println("\nEmail Domain Distribution:");
+                for (var e : domainCounts.entrySet()) {
+                    double dPct = (e.getValue() * 100.0) / matches;
+                    System.out.printf("  %s: %d students (%.0f%%)%n", e.getKey(), e.getValue(), dPct);
+                }
+            }
+
+            // --- Actions ---
+            while (true) {
+                System.out.println("\nActions:");
+                System.out.println(" 1. Export search results");
+                System.out.println(" 2. Generate reports for matched students");
+                System.out.println(" 3. Send bulk email to matched students (mock)");
+                System.out.println(" 4. New search with different pattern");
+                System.out.println(" 5. Return to main menu");
+                System.out.print("\nEnter choice: ");
+                int action;
+                try { action = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { action = 5; }
+
+                if (action == 1) {
+                    exportPatternResults(results);
+                } else if (action == 2) {
+                    generateReportsForMatches(results, gradeManager);
+                } else if (action == 3) {
+                    bulkEmailMatches(results);
+                } else if (action == 4) {
+                    // break the inner loop and restart search
+                    break;
+                } else if (action == 5) {
+                    return;
+                } else {
+                    System.out.println("Invalid choice. Enter 1-5.");
+                }
+            }
+        }
+    }
+
+    // Export results to ./reports/pattern_results_<timestamp>.txt
+    private static void exportPatternResults(java.util.List<Student> results) {
+        try {
+            java.nio.file.Path reportsDir = java.nio.file.Paths.get("./reports");
+            if (!java.nio.file.Files.exists(reportsDir)) java.nio.file.Files.createDirectories(reportsDir);
+            String ts = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            java.nio.file.Path target = reportsDir.resolve("pattern_results_" + ts + ".txt");
+
+            try (java.io.BufferedWriter w = java.nio.file.Files.newBufferedWriter(target,
+                    java.nio.charset.StandardCharsets.UTF_8)) {
+                w.write(String.format("SEARCH RESULTS (%d found)%n", results.size()));
+                w.write("─".repeat(50) + System.lineSeparator());
+                w.write(String.format("%-8s │ %-18s │ %-28s%n", "STU ID", "NAME", "EMAIL"));
+                w.write("─".repeat(50) + System.lineSeparator());
+                for (Student s : results) {
+                    w.write(String.format("%-8s │ %-18s │ %-28s%n",
+                            s.getStudentId(), truncateName(s.getName()), s.getEmail()));
+                }
+            }
+            long bytes = java.nio.file.Files.size(target);
+            System.out.println("\n✓ Search results exported!");
+            System.out.println(" File: " + target.getFileName());
+            System.out.println(" Location: ./reports/");
+            System.out.printf(" Size: %.1f KB%n", bytes / 1024.0);
+        } catch (java.io.IOException io) {
+            System.out.println("Export failed: " + io.getMessage());
+            com.amalitech.util.AppLogger.error("Pattern export failed", io);
+        }
+    }
+
+    // Generate detailed text reports (sequential, safe) under ./reports/pattern_batch_<timestamp>/text
+    private static void generateReportsForMatches(java.util.List<Student> matches,
+                                                  GradeManager gradeManager) {
+        if (matches == null || matches.isEmpty()) {
+            System.out.println("\n(no matches to report)");
+            return;
+        }
+        try {
+            String stamp = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            java.nio.file.Path base = java.nio.file.Paths.get("./reports").resolve("pattern_batch_" + stamp);
+            java.nio.file.Path textDir = base.resolve("text");
+            java.nio.file.Files.createDirectories(textDir);
+
+            com.amalitech.reporting.ReportGenerator rg = new com.amalitech.reporting.ReportGenerator();
+
+            for (Student s : matches) {
+                java.util.List<Grade> list = new java.util.ArrayList<>();
+                int total = gradeManager.getGradeCount();
+                for (int i = 0; i < total; i++) {
+                    Grade g = gradeManager.getGradeAt(i);
+                    if (g != null && g.getStudentId().equalsIgnoreCase(s.getStudentId())) {
+                        list.add(g);
+                    }
+                }
+
+                double coreAvg = gradeManager.calculateCoreAverage(s.getStudentId());
+                double elecAvg = gradeManager.calculateElectiveAverage(s.getStudentId());
+                double overallAvg = gradeManager.calculateOverallAverage(s.getStudentId());
+
+                String summary = rg.generateStudentReport(s);
+                StringBuilder out = new StringBuilder();
+                out.append(summary).append(System.lineSeparator());
+                out.append("SUMMARY METRICS").append(System.lineSeparator());
+                out.append(String.format("Core Average: %.2f%%%n", coreAvg));
+                out.append(String.format("Elective Average: %.2f%%%n", elecAvg));
+                out.append(String.format("Overall Average: %.2f%%%n", overallAvg));
+                out.append("─".repeat(60)).append(System.lineSeparator());
+                out.append("GRADE HISTORY").append(System.lineSeparator());
+                out.append(String.format("%-8s │ %-10s │ %-20s │ %-8s │ %-7s%n",
+                        "GRD ID", "DATE", "SUBJECT", "TYPE", "GRADE"));
+                out.append("─".repeat(70)).append(System.lineSeparator());
+                for (Grade g : list) {
+                    out.append(String.format("%-8s │ %-10s │ %-20s │ %-8s │ %7.2f%n",
+                            g.getGradeId(), g.getDate(),
+                            g.getSubject().getSubjectName(),
+                            g.getSubject().getSubjectType(),
+                            g.getGrade()));
+                }
+
+                String baseName = s.getName().toLowerCase().replaceAll("\\s+", "_");
+                java.nio.file.Path target = textDir.resolve(baseName + "_report.txt");
+                java.nio.file.Files.writeString(target, out.toString(),
+                        java.nio.charset.StandardCharsets.UTF_8,
+                        java.nio.file.StandardOpenOption.CREATE,
+                        java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+            }
+
+            long bytes = 0L;
+            try (var stream = java.nio.file.Files.walk(base)) {
+                bytes = stream.filter(java.nio.file.Files::isRegularFile)
+                        .mapToLong(p -> {
+                            try { return java.nio.file.Files.size(p); }
+                            catch (java.io.IOException ignored) { return 0L; }
+                        })
+                        .sum();
+            }
+
+            System.out.println("\n✓ Reports generated for matched students!");
+            System.out.println(" Output Location: " + base.toString());
+            System.out.printf(" Total Files Generated: %d%n", matches.size());
+            System.out.printf(" Total Size: %.1f KB%n", bytes / 1024.0);
+        } catch (java.io.IOException io) {
+            System.out.println("Report generation failed: " + io.getMessage());
+            com.amalitech.util.AppLogger.error("Pattern batch generation failed", io);
+        }
+    }
+
+    // Mock bulk email: write a single file listing emails
+    private static void bulkEmailMatches(java.util.List<Student> matches) {
+        if (matches == null || matches.isEmpty()) {
+            System.out.println("\n(no matches to email)");
+            return;
+        }
+        try {
+            java.nio.file.Path reportsDir = java.nio.file.Paths.get("./reports");
+            if (!java.nio.file.Files.exists(reportsDir)) java.nio.file.Files.createDirectories(reportsDir);
+            String ts = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            java.nio.file.Path target = reportsDir.resolve("bulk_emails_" + ts + ".txt");
+
+            try (java.io.BufferedWriter w = java.nio.file.Files.newBufferedWriter(target,
+                    java.nio.charset.StandardCharsets.UTF_8)) {
+                w.write("BULK EMAIL (mock)\n");
+                w.write("────────────────────────────────\n");
+                w.write("Recipients:\n");
+                for (Student s : matches) {
+                    w.write("  " + s.getEmail() + " (" + s.getStudentId() + " - " + s.getName() + ")\n");
+                }
+                w.write("\nSubject: Notification from Student Grade Management\n");
+                w.write("Body: Dear student, this is a system-generated message for matched selection.\n");
+            }
+
+            long bytes = java.nio.file.Files.size(target);
+            System.out.println("\n✓ Bulk email file prepared!");
+            System.out.println(" File: " + target.getFileName());
+            System.out.println(" Location: ./reports/");
+            System.out.printf(" Size: %.1f KB%n", bytes / 1024.0);
+        } catch (java.io.IOException io) {
+            System.out.println("Bulk email file failed: " + io.getMessage());
+            com.amalitech.util.AppLogger.error("Pattern bulk email failed", io);
+        }
     }
 
 
