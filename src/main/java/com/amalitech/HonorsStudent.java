@@ -10,6 +10,12 @@ public class HonorsStudent extends Student {
     }
 
 
+    public HonorsStudent(String studentId, String name, int age, String email, String phone) {
+        super(studentId, name, age, email);
+    }
+
+
+
     @Override
     public String getStudentType() { return "Honors Student"; }
 
