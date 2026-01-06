@@ -1405,20 +1405,20 @@ public class Main {
 
 
 
-    private static void bulkImportGrades(Scanner scanner,
-                                         StudentManager studentManager,
-                                         GradeManager gradeManager) {
+
+    private static void bulkImportGrades(
+            Scanner scanner,
+            StudentManager studentManager,
+            GradeManager gradeManager
+    ) {
         System.out.println("\nBULK IMPORT GRADES");
         System.out.println("─".repeat(50));
-
         System.out.println("Place your CSV file in: ./imports/");
         System.out.println();
         System.out.println("CSV Format Required:");
         System.out.println("StudentID,SubjectName,SubjectType,Grade");
         System.out.println("Example: STU001,Mathematics,Core,85");
         System.out.println();
-
-        System.out.print("Enter filename (without extension): ");
 
         String baseName;
         while (true) {
@@ -1430,8 +1430,7 @@ public class Main {
             } catch (IllegalArgumentException iae) {
                 ErrorHandler.handle("Bulk Import > filename", iae);
             }
-
-    }
+        }
 
         Path importsDir = Paths.get("./imports");
         try {
@@ -1444,7 +1443,6 @@ public class Main {
         }
 
         Path csvPath = importsDir.resolve(baseName + ".csv");
-
         System.out.print("\nValidating file... ");
         if (!Files.exists(csvPath) || !Files.isRegularFile(csvPath)) {
             System.out.println("✗");
@@ -1456,49 +1454,42 @@ public class Main {
             System.out.println("✓");
         }
 
-        // Prepare log file
+        // Prepare log file (same as before)
         String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         Path logPath = importsDir.resolve("import_log_" + ts + ".txt");
 
-        System.out.println("Processing grades...");
+        System.out.println("Processing grades (NIO.2 streaming with Files.lines)...");
 
         int totalRows = 0;
         int success = 0;
         int failed = 0;
         List<String> failures = new ArrayList<>();
 
-        // Read CSV lines
         CSVParser parser = new CSVParser();
-        List<String> rawLines = new ArrayList<>();
 
-        try (BufferedReader br = Files.newBufferedReader(csvPath, StandardCharsets.UTF_8)) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                rawLines.add(line);
+        // NIO.2 streaming pipeline
+        try (BufferedWriter log = Files.newBufferedWriter(logPath, StandardCharsets.UTF_8);
+             // Files.lines() reads the file lazily as a Stream<String>
+             java.util.stream.Stream<String> stream = Files.lines(csvPath, StandardCharsets.UTF_8)) {
+
+            // Collect raw lines via streaming
+            List<String> rawLines = stream
+                    .map(line -> line == null ? "" : line)            // map
+                    .collect(java.util.stream.Collectors.toList());    // terminal collect
+
+            // Parse lines with header validation
+            List<String[]> rows;
+            try {
+                rows = parser.parseLines(rawLines, true); // hasHeader=true
+            } catch (com.amalitech.exceptions.CsvFormatException cfe) {
+                // Friendly handling + timestamped logging
+                ErrorHandler.handle("Bulk Import > parse CSV", cfe);
+                System.out.print("\nPress Enter to continue...");
+                scanner.nextLine();
+                return;
             }
-        } catch (IOException e) {
-            com.amalitech.util.ErrorHandler.handle("Bulk Import > read CSV", e);
-            System.out.print("\nPress Enter to continue...");
-            scanner.nextLine();
-            return;
-        }
 
-
-        // Parse lines (auto-skip header if present)
-        List<String[]> rows;
-        try {
-            rows = parser.parseLines(rawLines, true);
-        } catch (com.amalitech.exceptions.CsvFormatException cfe) {
-            // Friendly handling + timestamped logging
-            com.amalitech.util.ErrorHandler.handle("Bulk Import > parse CSV", cfe);
-            System.out.print("\nPress Enter to continue...");
-            scanner.nextLine();
-            return;
-        }
-
-        // Prepare log writer
-        try (BufferedWriter log = Files.newBufferedWriter(logPath, StandardCharsets.UTF_8)) {
-
+            // Stream over parsed rows
             for (int i = 0; i < rows.size(); i++) {
                 String[] parts = rows.get(i);
                 int rowNum = i + 1; // human-friendly numbering
@@ -1509,17 +1500,16 @@ public class Main {
                     failed++;
                     String reason = "Row " + rowNum + ": Invalid column count (" + parts.length + ")";
                     failures.add(reason);
-                    log.write(reason);
-                    log.newLine();
+                    log.write(reason); log.newLine();
                     continue;
                 }
 
-                String sid      = safeTrim(parts[0]).toUpperCase();
-                String subj     = safeTrim(parts[1]);
-                String type     = safeTrim(parts[2]);
+                String sid = safeTrim(parts[0]).toUpperCase();
+                String subj = safeTrim(parts[1]);
+                String type = safeTrim(parts[2]);
                 String gradeStr = safeTrim(parts[3]);
 
-                // Validate student
+                // Validate student via O(1) lookup (HashMap) — Step 1 benefit
                 Student student = studentManager.findStudent(sid);
                 if (student == null) {
                     failed++;
@@ -1559,13 +1549,13 @@ public class Main {
                     continue;
                 }
 
-                // Build subject
+                // Build subject and grade
                 Subject subject = isCore
                         ? new CoreSubject(subj, "C" + (int) (Math.random() * 1000))
                         : new ElectiveSubject(subj, "E" + (int) (Math.random() * 1000));
-
-                // Create and store grade
                 Grade grade = new Grade(sid, subject, pct);
+
+                // Store grade
                 gradeManager.addGrade(grade);
 
                 // Record via Student (Gradable)
@@ -1581,10 +1571,9 @@ public class Main {
                 // Enroll subject
                 student.enrollSubject(subject);
                 success++;
-
             }
 
-            // Write import summary
+            // Import summary in log
             log.newLine();
             log.write("IMPORT SUMMARY"); log.newLine();
             log.write("Total Rows: " + totalRows); log.newLine();
@@ -1592,13 +1581,13 @@ public class Main {
             log.write("Failed: " + failed); log.newLine();
 
         } catch (IOException e) {
-            System.out.println("Import failed due to I/O error: " + e.getMessage());
+            ErrorHandler.handle("Bulk Import > streaming IO", e);
             System.out.print("\nPress Enter to continue...");
             scanner.nextLine();
             return;
         }
 
-        // Console summary (same as your current version)
+        // Console summary (same format)
         System.out.println();
         System.out.println("IMPORT SUMMARY");
         System.out.println("─".repeat(50));
@@ -1608,7 +1597,7 @@ public class Main {
         if (!failures.isEmpty()) {
             System.out.println();
             System.out.println("Failed Records:");
-            for (String f : failures) System.out.println(f);
+            failures.forEach(System.out::println);
         }
         System.out.println();
         System.out.println("✓ Import completed!");
@@ -1616,8 +1605,9 @@ public class Main {
         System.out.println("See " + logPath.getFileName() + " for details");
         System.out.print("\nPress Enter to continue...");
         scanner.nextLine();
-
     }
+
+
 
     private static String requireNotEmpty(String label, String value) throws com.amalitech.exceptions.CsvFormatException {
         if (value == null || value.trim().isEmpty()) {
@@ -1727,7 +1717,7 @@ public class Main {
         printSubjectAvg(subjectAgg, "Art");
         printSubjectAvg(subjectAgg, "Physical Education");
 
-        // Student type comparison (retain your logic; normalize labels)
+        // Student type comparison
         java.util.Map<String, Integer> gradesPerStudent = new java.util.HashMap<>();
         for (Grade g : allGrades) {
             gradesPerStudent.put(g.getStudentId(),
