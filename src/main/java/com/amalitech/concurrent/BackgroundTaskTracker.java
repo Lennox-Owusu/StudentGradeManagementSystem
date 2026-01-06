@@ -26,4 +26,6 @@ public final class BackgroundTaskTracker {
         final String status = statsUpdating ? "Stats updating..." : "Idle";
         return String.format(" Background Tasks: %s %d active | %s %s", bolt, ACTIVE.get(), chart, status);
     }
+
+
 }

@@ -7,7 +7,6 @@ import com.amalitech.reporting.GPACalculator;
 import com.amalitech.io.CSVParser;
 import com.amalitech.calculation.StatisticsCalculator;
 import com.amalitech.exceptions.StudentNotFoundException;
-import com.amalitech.reporting.ReportType;
 import com.amalitech.util.AppLogger;
 import com.amalitech.util.ErrorHandler;
 import com.amalitech.util.Validators;
@@ -29,11 +28,13 @@ import java.util.Scanner;
 
 
 import com.amalitech.concurrent.BackgroundTaskTracker;
-
+import com.amalitech.concurrent.TaskProgressRegistry;
+import com.amalitech.cache.CacheService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import com.amalitech.monitor.GradeEventTracker;
 
 
 public class Main {
@@ -127,6 +128,8 @@ public class Main {
     private static String safeTrim(String s) {
         return (s == null) ? "" : s.trim();
     }
+
+    private static final com.amalitech.cache.CacheService<String, Object> CACHE = new com.amalitech.cache.CacheService<>(256);
 
 
     private static final ReportGenerator REPORT_GENERATOR = new ReportGenerator();
@@ -289,8 +292,15 @@ public class Main {
 
                 case 8 -> calculateStudentGPA(scanner, studentManager, gradeManager);
                 case 9 -> viewClassStatistics(scanner, studentManager, gradeManager);
-                case 10 -> { /* Real-time dashboard (NEW) */
-                    System.out.println("Real-Time Statistics Dashboard — to be implemented.");
+
+                case 10 -> { /* Real-Time dashboard */
+                    new com.amalitech.dashboard.RealTimeDashboard().runInteractive(
+                            scanner, studentManager, gradeManager,
+                            (java.util.concurrent.ExecutorService) fixedPool,
+                            (java.util.concurrent.ExecutorService) cachedPool,
+                            (java.util.concurrent.ScheduledThreadPoolExecutor) scheduler,
+                            CACHE
+                    );
                 }
                 case 11 -> { /* Batch reports (NEW) */
                     System.out.println("Generate Batch Reports — to be implemented.");
@@ -508,36 +518,69 @@ public class Main {
     }
 
     /** Starts background tasks so the status line shows activity. */
+
     private static void startBackgroundServices(StudentManager studentManager, GradeManager gradeManager) {
-        // 1) Real-time stats updater (periodic)
+        // 1) Real-time stats updater (periodic, already in your code) — now with progress reporting
+        TaskProgressRegistry.set("Statistics Calculation", 0, 1, false);
         scheduler.scheduleAtFixedRate(() -> {
             BackgroundTaskTracker.incrementActive();
             BackgroundTaskTracker.setStatsUpdating(true);
             try {
-                // Compute something lightweight to simulate live stats refresh
+                // Simulate progressive completion so the dashboard can render a moving progress bar
+                for (int p = 0; p <= 100; p += 25) {
+                    TaskProgressRegistry.set("Statistics Calculation", p, 1, p == 100);
+                    Thread.sleep(200); // small delay to see the progress move
+                }
+
+                // Your actual lightweight stats refresh (same as before)
                 double classAvg = studentManager.getAverageClassGrade();
-                com.amalitech.util.AppLogger.info(String.format("Stats refresh: classAvg=%.2f", classAvg));
+                AppLogger.info(String.format("Stats refresh: classAvg=%.2f", classAvg));
             } catch (Exception e) {
-                com.amalitech.util.AppLogger.error("Stats updater failed", e);
+                AppLogger.error("Stats updater failed", e);
             } finally {
                 BackgroundTaskTracker.setStatsUpdating(false);
                 BackgroundTaskTracker.decrementActive();
             }
-        }, 0, 3, TimeUnit.SECONDS);
+        }, 0, 3, java.util.concurrent.TimeUnit.SECONDS);
 
-        // 2) Long-running background worker (simulates audit writer)
+        // 2) Long-running background worker — simulate "Cache Refresh" and expose progress
+        TaskProgressRegistry.set("Cache Refresh", 0, 2, false);
         cachedPool.submit(() -> {
             BackgroundTaskTracker.incrementActive();
             try {
-                while (RUNNING) {
-                    // Simulate periodic work
-                    Thread.sleep(4000);
+                for (int p = 0; p <= 100; p += 10) {
+                    TaskProgressRegistry.set("Cache Refresh", p, 2, p == 100);
+
+                    // Warm simple cache entries (this also drives hit-rate for the dashboard)
+                    CACHE.getOrLoad("subjects", () -> java.util.List.of("Mathematics", "English", "Science"));
+                    CACHE.getOrLoad("students", () -> java.util.Arrays.asList(studentManager.getStudents()));
+
+                    Thread.sleep(400);
                 }
             } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
             } finally {
                 BackgroundTaskTracker.decrementActive();
             }
         });
+
+        // 3) Another background worker — simulate "Batch Report Generation" and expose progress
+        TaskProgressRegistry.set("Batch Report Generation", 0, 3, false);
+        fixedPool.submit(() -> {
+            BackgroundTaskTracker.incrementActive();
+            try {
+                for (int p = 0; p <= 100; p += 20) {
+                    TaskProgressRegistry.set("Batch Report Generation", p, 3, p == 100);
+                    Thread.sleep(500);
+                }
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            } finally {
+                BackgroundTaskTracker.decrementActive();
+            }
+        });
+
+
 
         // 3) Long-running background worker (simulates directory watcher)
         fixedPool.submit(() -> {
@@ -733,7 +776,9 @@ public class Main {
         System.out.print("Confirm grade? (Y/N): ");
         String confirm = scanner.nextLine().trim().toUpperCase();
 
+
         if (confirm.equals("Y")) {
+            long t0Ms = System.currentTimeMillis();
             gradeManager.addGrade(grade);
             boolean ok = student.recordGrade(gradeValue);
             if (!ok) {
@@ -741,6 +786,10 @@ public class Main {
             } else {
                 student.enrollSubject(subject);
                 System.out.println("\n✓ Grade recorded successfully!");
+
+                GradeEventTracker.recordEventNow();
+                GradeEventTracker.recordProcessingTime(System.currentTimeMillis() - t0Ms);
+
             }
         } else {
             System.out.println("\nGrade entry canceled.");
