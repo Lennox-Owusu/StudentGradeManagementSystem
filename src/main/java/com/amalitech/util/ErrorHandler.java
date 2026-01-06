@@ -9,8 +9,13 @@ public final class ErrorHandler {
 
     //Shows a friendly console message and logs details.
     public static void handle(String context, Throwable error) {
-        // NEVER use catch(Exception) in your app code; handle here by type
+
         switch (error) {
+
+            case com.amalitech.exceptions.ValidationException ve -> {
+                AppLogger.error(context + ": regex validation failed", ve);
+                System.out.println("\n" + ve.getMessage());
+            }
             case InvalidGradeException ige -> {
                 AppLogger.error(context + ": invalid grade value=" + ige.getValue(), ige);
                 println("✖ Invalid grade. Grades must be between 0 and 100.",
@@ -37,7 +42,7 @@ public final class ErrorHandler {
                         "Run the app with proper permissions or choose a different folder.");
             }
             case null, default -> {
-                // Specific types only; still no generic catch in app code.
+                // Specific types only
                 AppLogger.error(context + ": unexpected error", error);
                 println("✖ Unexpected error occurred.",
                         "Please try the operation again. If the issue persists, check logs in ./logs/app.log.");
