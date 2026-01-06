@@ -38,6 +38,80 @@ import java.util.concurrent.TimeUnit;
 
 public class Main {
 
+      //Helper method for import data case 6
+    private static void importData(Scanner scanner, StudentManager studentManager, GradeManager gradeManager) {
+        System.out.println("\nIMPORT DATA (Multi-format)");
+        System.out.println("────────────────────────────────────────────");
+
+        Path importsDir = Paths.get("./imports");
+        try {
+            if (!Files.exists(importsDir)) Files.createDirectories(importsDir);
+        } catch (IOException io) {
+            System.out.println("Failed to prepare ./imports directory: " + io.getMessage());
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
+
+        System.out.println("\nSupported formats:");
+        System.out.println(" 1. CSV detailed report (*.csv)");
+        System.out.println(" 2. JSON detailed report (*.json)");
+        System.out.println(" 3. Binary report (*.dat)");
+        System.out.println(" 4. Auto-detect by file extension");
+        System.out.print("\nSelect format (1-4): ");
+        int fsel;
+        try { fsel = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { fsel = 4; }
+
+        com.amalitech.io.ImportCoordinator.Format format =
+                switch (fsel) {
+                    case 1 -> com.amalitech.io.ImportCoordinator.Format.CSV;
+                    case 2 -> com.amalitech.io.ImportCoordinator.Format.JSON;
+                    case 3 -> com.amalitech.io.ImportCoordinator.Format.BINARY;
+                    default -> com.amalitech.io.ImportCoordinator.Format.AUTO;
+                };
+
+        System.out.print("\nEnter filename (including extension) in ./imports: ");
+        String fileName = scanner.nextLine().trim();
+        if (fileName.isEmpty()) {
+            System.out.println("No filename provided.");
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
+
+        Path path = importsDir.resolve(fileName);
+        if (!Files.exists(path) || !Files.isRegularFile(path)) {
+            System.out.println("File not found: " + path.toAbsolutePath());
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
+
+        var coordinator = new com.amalitech.io.ImportCoordinator();
+        try {
+            var t0 = java.time.Instant.now();
+            com.amalitech.reporting.StudentReport report = coordinator.loadReport(path, format);
+            coordinator.mergeIntoSystem(report, studentManager, gradeManager);
+            var ms = java.time.Duration.between(t0, java.time.Instant.now()).toMillis();
+
+            System.out.println("\n✓ Import completed");
+            System.out.println(" Source: " + path.getFileName());
+            System.out.println(" Student: " + report.getStudentId() + " - " + report.getName());
+            System.out.println(" Grades imported: " + report.getTotalGrades());
+            System.out.println(" Time: " + ms + "ms");
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+
+            com.amalitech.util.AppLogger.info("Import completed for " + report.getStudentId()
+                    + " from " + path.getFileName() + " in " + ms + "ms");
+        } catch (com.amalitech.exceptions.DomainException ex) {
+            com.amalitech.util.ErrorHandler.handle("Import Data", ex);
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+        }
+    }
+
+
 
     // --- Advanced Edition v3.0 concurrency ---
     private static ExecutorService fixedPool;
@@ -88,12 +162,6 @@ public class Main {
                 case 2 -> viewStudents(studentManager);
                 case 3 -> recordGrade(scanner, studentManager, gradeManager);
                 case 4 -> viewGradeReport(scanner, studentManager, gradeManager);
-
-
-
-
-
-
                 case 5 -> {
                     System.out.println("\nEXPORT GRADE REPORT (Multi-Format)");
                     System.out.println("────────────────────────────────────");
@@ -211,14 +279,12 @@ public class Main {
                     scanner.nextLine();
                 }
 
+                case 6 -> { // Import Data (Multi-format support) [ENHANCED]
+                    importData(scanner, studentManager, gradeManager);
 
 
 
-
-
-                case 6 -> { /* Enhanced multi-format import */
-                    System.out.println("Import (multi-format) — coming up in next step.");
-                }
+            }
                 case 7 -> bulkImportGrades(scanner, studentManager, gradeManager);
 
                 case 8 -> calculateStudentGPA(scanner, studentManager, gradeManager);
@@ -1046,7 +1112,6 @@ public class Main {
 
 
         // Parse lines (auto-skip header if present)
-
         List<String[]> rows;
         try {
             rows = parser.parseLines(rawLines, true);
