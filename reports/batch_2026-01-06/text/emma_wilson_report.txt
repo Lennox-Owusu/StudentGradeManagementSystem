@@ -1,0 +1,18 @@
+Student Report
+--------------
+ID: STU005
+Name: Emma Wilson
+Type: Honors Student
+Email: emma@school.edu
+Enrolled Subjects: 0
+Average Grade: 0.00
+Passing: No
+
+SUMMARY METRICS
+Core Average: 0.00%
+Elective Average: 0.00%
+Overall Average: 0.00%
+────────────────────────────────────────────────────────────
+GRADE HISTORY
+GRD ID   │ DATE       │ SUBJECT              │ TYPE     │ GRADE  
+──────────────────────────────────────────────────────────────────────

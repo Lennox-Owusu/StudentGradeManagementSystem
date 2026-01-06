@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "format": "student-report",
+    "version": "1.0"
+  },
+  "student": {
+    "id": "STU002",
+    "name": "Bob Smith",
+    "email": "bob@school.edu",
+    "phone": "+1-555-0123",
+    "type": "Honors Student"
+  },
+  "aggregates": {
+    "coreAverage": 0.00,
+    "electiveAverage": 0.00,
+    "overallAverage": 0.00
+  },
+  "grades": [
+  ]
+}

@@ -13,7 +13,7 @@ public final class BinaryReportImporter implements Importer<StudentReport> {
     @Override
     public StudentReport importFrom(Path source) throws ImportFailedException {
         if (source == null || !Files.exists(source) || !Files.isRegularFile(source)) {
-            throw new ImportFailedException("Binary file not found: " + String.valueOf(source));
+            throw new ImportFailedException("Binary file not found: " + source);
         }
         try (ObjectInputStream ois = new ObjectInputStream(
                 Files.newInputStream(source, StandardOpenOption.READ))) {

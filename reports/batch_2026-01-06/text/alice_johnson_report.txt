@@ -1,0 +1,18 @@
+Student Report
+--------------
+ID: STU001
+Name: Alice Johnson
+Type: Regular Student
+Email: alice@school.edu
+Enrolled Subjects: 0
+Average Grade: 0.00
+Passing: No
+
+SUMMARY METRICS
+Core Average: 0.00%
+Elective Average: 0.00%
+Overall Average: 0.00%
+────────────────────────────────────────────────────────────
+GRADE HISTORY
+GRD ID   │ DATE       │ SUBJECT              │ TYPE     │ GRADE  
+──────────────────────────────────────────────────────────────────────

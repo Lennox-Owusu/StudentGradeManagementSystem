@@ -3,7 +3,6 @@ package com.amalitech.monitor;
 
 import com.amalitech.*;
 import com.amalitech.cache.CacheService;
-import com.amalitech.util.AppLogger;
 
 import java.lang.management.*;
 import java.time.LocalDateTime;
@@ -17,10 +16,6 @@ public final class SystemPerformanceMonitor {
 
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("HH:mm:ss");
     private final int refreshSecs;
-
-    public SystemPerformanceMonitor() {
-        this(2); // default 2s as per screenshot
-    }
 
     public SystemPerformanceMonitor(int refreshSeconds) {
         this.refreshSecs = Math.max(1, refreshSeconds);
@@ -129,7 +124,7 @@ public final class SystemPerformanceMonitor {
 
         // Rough memory estimation (very approximate, just to display text)
         String hmMem = kbText(idMap.size() * 500L);
-        String tmMem = kbText(Math.max(1, gradeTree.size()) * 80L + gradeTree.values().size() * 64L);
+        String tmMem = kbText(Math.max(1, gradeTree.size()) * 80L + gradeTree.size() * 64L);
         String alMem = kbText(studentList.size() * 320L);
         String hsMem = kbText(courses.size() * 64L);
         String chmMem = kbText(chm.size() * 600L);
@@ -154,7 +149,7 @@ public final class SystemPerformanceMonitor {
 
         printPool("FixedThreadPool", fixed);
         printPool("CachedThreadPool", cached);
-        printScheduledPool("ScheduledPool", sched);
+        printScheduledPool(sched);
 
         // Thread activity summary (names + simple state snapshot)
         System.out.println("\nThread Activity:");
@@ -237,7 +232,7 @@ public final class SystemPerformanceMonitor {
         try {
             OperatingSystemMXBean os = ManagementFactory.getOperatingSystemMXBean();
             if (os instanceof com.sun.management.OperatingSystemMXBean sun) {
-                double load = sun.getSystemCpuLoad(); // 0..1 (may be -1 if not available)
+                double load = sun.getCpuLoad(); // 0..1 (may be -1 if not available)
                 cpuPct = (load < 0) ? 0.0 : (load * 100.0);
                 openFiles = (long) sun.getProcessCpuLoad();
             } else {
@@ -316,21 +311,21 @@ public final class SystemPerformanceMonitor {
         }
     }
 
-    private static void printScheduledPool(String label, ScheduledExecutorService svc) {
+    private static void printScheduledPool(ScheduledExecutorService svc) {
         if (svc instanceof ScheduledThreadPoolExecutor stpe) {
             int active = stpe.getActiveCount();
             int max = stpe.getMaximumPoolSize();
             int queue = stpe.getQueue().size();
             long done = stpe.getCompletedTaskCount();
-            System.out.printf("%-14s | %-6d | %-6d | %-5d | %-10d%n", label, active, max, queue, done);
+            System.out.printf("%-14s | %-6d | %-6d | %-5d | %-10d%n", "ScheduledPool", active, max, queue, done);
         } else {
-            System.out.printf("%-14s | %-6s | %-6s | %-5s | %-10s%n", label, "n/a", "n/a", "n/a", "n/a");
+            System.out.printf("%-14s | %-6s | %-6s | %-5s | %-10s%n", "ScheduledPool", "n/a", "n/a", "n/a", "n/a");
         }
     }
 
     private static long timeNs(Runnable r) {
         long t0 = System.nanoTime();
-        try { r.run(); } finally {}
+        r.run();
         return System.nanoTime() - t0;
     }
 
@@ -387,7 +382,7 @@ public final class SystemPerformanceMonitor {
     public static final class RegexRegistry {
         private static final Map<String, RegexStat> stats = new ConcurrentHashMap<>();
         public static void record(String name, long ns, boolean cacheHit) {
-            RegexStat rs = stats.computeIfAbsent(name, k -> new RegexStat(k));
+            RegexStat rs = stats.computeIfAbsent(name, RegexStat::new);
             rs.count++;
             rs.totalNs += Math.max(0, ns);
             if (cacheHit) rs.cacheHits++;

@@ -14,10 +14,8 @@ public final class BackgroundTaskTracker {
 
     public static void incrementActive() { ACTIVE.incrementAndGet(); }
     public static void decrementActive() { if (ACTIVE.get() > 0) ACTIVE.decrementAndGet(); }
-    public static int getActive() { return ACTIVE.get(); }
 
     public static void setStatsUpdating(boolean value) { statsUpdating = value; }
-    public static boolean isStatsUpdating() { return statsUpdating; }
 
     // Returns: " Background Tasks: ⚡ <n> active | 📊 <status>" */
     public static String statusLine() {

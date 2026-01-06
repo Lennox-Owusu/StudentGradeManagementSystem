@@ -22,7 +22,7 @@ public class FileExporter implements Exportable {
             Path parent = path.getParent();
             if (parent != null) Files.createDirectories(parent);
             if (content == null) content = "";
-            Files.write(path, content.getBytes(StandardCharsets.UTF_8));
+            Files.writeString(path, content);
         } catch (IOException ioe) {
             throw new ExportFailedException(path.toAbsolutePath().toString(), ioe);
         }

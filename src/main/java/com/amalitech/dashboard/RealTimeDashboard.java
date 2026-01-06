@@ -37,13 +37,14 @@ public final class RealTimeDashboard {
 
             System.out.print("\nCommand: "); // Q=quit, R=refresh, P=pause/resume
             String cmd = scanner.nextLine().trim().toUpperCase();
-            if (cmd.isEmpty() || "R".equals(cmd)) {
-                // refresh immediately
-                continue;
-            } else if ("Q".equals(cmd)) {
-                running = false;
-            } else if ("P".equals(cmd)) {
-                auto = !auto;
+            switch (cmd) {
+                case "", "R" -> {
+                    // refresh immediately
+                    continue;
+                    // refresh immediately
+                }
+                case "Q" -> running = false;
+                case "P" -> auto = !auto;
             }
 
             if (auto) {
@@ -153,9 +154,9 @@ public final class RealTimeDashboard {
             System.out.println("(no active operations)");
         } else {
             for (var e : ops.values()) {
-                String bar = progressBar(e.percent);
-                String status = e.completed ? "COMPLETED" : String.format("%d%%", e.percent);
-                System.out.printf("%s %s - %s - %d threads%n", bar, e.name, status, e.threads);
+                String bar = progressBar(e.percent());
+                String status = e.completed() ? "COMPLETED" : String.format("%d%%", e.percent());
+                System.out.printf("%s %s - %s - %d threads%n", bar, e.name(), status, e.threads());
             }
         }
         System.out.println();
