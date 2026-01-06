@@ -39,4 +39,24 @@ public final class CacheService<K, V> {
         double rate = (h + m == 0) ? 0.0 : (h * 100.0 / (h + m));
         return String.format("%.1f%%", rate);
     }
+
+
+
+
+    //  getters
+    public int size() { return map.size(); }
+    public long hits() { return hits.sum(); }
+    public long misses() { return misses.sum(); }
+
+
+    private final java.util.concurrent.atomic.LongAdder evict = new java.util.concurrent.atomic.LongAdder();
+
+    public long evictions() { return evict.sum(); }
+
+
+    public void resetStats() {
+    }
+
+    public void clearAll() {
+    }
 }
