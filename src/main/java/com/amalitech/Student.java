@@ -33,6 +33,15 @@ public abstract class Student implements Gradable {
         this.email = email;
     }
 
+    // Overloaded constructor to allow explicit student ID (for imports / regex-validated input)
+    protected Student(String studentId, String name, int age, String email) {
+        this.studentId = studentId;
+        this.name = name;
+        this.age = age;
+        this.email = email;
+    }
+
+
     public abstract String getStudentType();
     public abstract double getPassingGrade();
 
