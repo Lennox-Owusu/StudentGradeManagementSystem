@@ -139,6 +139,389 @@ public class Main {
 
     private static final com.amalitech.cache.CacheService<String, Object> CACHE = new com.amalitech.cache.CacheService<>(256);
 
+
+    // ─────────────────────────────────────────────────────────────────────────────
+// OPTION 14: QUERY GRADE HISTORY (filter by student/subject/date/grade; sort; export)
+// ─────────────────────────────────────────────────────────────────────────────
+    private static void queryGradeHistory(
+            Scanner scanner,
+            StudentManager studentManager,
+            GradeManager gradeManager
+    ) {
+        System.out.println("\nQUERY GRADE HISTORY");
+        System.out.println("─".repeat(60));
+
+        // 1) Choose target scope
+        System.out.println("\nScope:");
+        System.out.println(" 1. Single Student by ID");
+        System.out.println(" 2. All Students");
+        System.out.print("\nSelect scope (1-2): ");
+        int scope;
+        try { scope = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { scope = 1; }
+
+        String studentId = null;
+        if (scope == 1) {
+            System.out.print("\nEnter Student ID: ");
+            studentId = safeTrim(scanner.nextLine()).toUpperCase();
+            if (studentId.isEmpty()) {
+                System.out.println("No Student ID provided.");
+                System.out.print("\nPress Enter to continue...");
+                scanner.nextLine();
+                return;
+            }
+            if (studentManager.findStudent(studentId) == null) {
+                System.out.println("Student not found: " + studentId);
+                System.out.print("\nPress Enter to continue...");
+                scanner.nextLine();
+                return;
+            }
+        }
+
+        // 2) Optional filters
+        System.out.println("\nOptional Filters (press Enter to skip):");
+        System.out.print(" Subject contains: ");
+        String subjFilter = safeTrim(scanner.nextLine());
+
+        System.out.print(" Subject type (Core/Elective): ");
+        String typeFilter = safeTrim(scanner.nextLine());
+
+        System.out.print(" Date From (YYYY-MM-DD): ");
+        String dateFrom = safeTrim(scanner.nextLine());
+
+        System.out.print(" Date To   (YYYY-MM-DD): ");
+        String dateTo = safeTrim(scanner.nextLine());
+
+        System.out.print(" Min Grade (0-100): ");
+        String minS = safeTrim(scanner.nextLine());
+        System.out.print(" Max Grade (0-100): ");
+        String maxS = safeTrim(scanner.nextLine());
+
+        Double minGrade = null, maxGrade = null;
+        try { if (!minS.isEmpty()) minGrade = Double.parseDouble(minS); } catch (NumberFormatException ignored) {}
+        try { if (!maxS.isEmpty()) maxGrade = Double.parseDouble(maxS); } catch (NumberFormatException ignored) {}
+        if (minGrade != null && (minGrade < 0 || minGrade > 100)) minGrade = null;
+        if (maxGrade != null && (maxGrade < 0 || maxGrade > 100)) maxGrade = null;
+        if (minGrade != null && maxGrade != null && minGrade > maxGrade) {
+            double t = minGrade; minGrade = maxGrade; maxGrade = t;
+        }
+
+        // 3) Sort choice
+        System.out.println("\nSort by:");
+        System.out.println(" 1. Date (Newest first)");
+        System.out.println(" 2. Date (Oldest first)");
+        System.out.println(" 3. Grade (High to Low)");
+        System.out.println(" 4. Grade (Low to High)");
+        System.out.print("\nSelect sort (1-4): ");
+        int sort;
+        try { sort = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { sort = 1; }
+
+        // 4) Gather matches
+        java.util.List<Grade> matches = new java.util.ArrayList<>();
+        for (int i = 0; i < gradeManager.getGradeCount(); i++) {
+            Grade g = gradeManager.getGradeAt(i);
+            if (g == null) continue;
+
+            if (studentId != null && !g.getStudentId().equalsIgnoreCase(studentId)) continue;
+
+            if (!subjFilter.isEmpty()) {
+                String sname = g.getSubject().getSubjectName();
+                if (sname == null || !sname.toLowerCase().contains(subjFilter.toLowerCase())) continue;
+            }
+            if (!typeFilter.isEmpty()) {
+                String t = g.getSubject().getSubjectType();
+                if (t == null || !t.equalsIgnoreCase(typeFilter)) continue;
+            }
+            if (!dateFrom.isEmpty()) {
+                if (g.getDate() == null || g.getDate().compareTo(dateFrom) < 0) continue;
+            }
+            if (!dateTo.isEmpty()) {
+                if (g.getDate() == null || g.getDate().compareTo(dateTo) > 0) continue;
+            }
+            if (minGrade != null && g.getGrade() < minGrade) continue;
+            if (maxGrade != null && g.getGrade() > maxGrade) continue;
+
+            matches.add(g);
+        }
+
+        java.util.Comparator<Grade> byDateAsc = java.util.Comparator.comparing(Grade::getDate, java.util.Comparator.nullsLast(String::compareTo));
+        java.util.Comparator<Grade> byGradeAsc = java.util.Comparator.comparingDouble(Grade::getGrade);
+
+        switch (sort) {
+            case 2 -> matches.sort(byDateAsc);
+            case 3 -> matches.sort(byGradeAsc.reversed());
+            case 4 -> matches.sort(byGradeAsc);
+            default -> matches.sort(byDateAsc.reversed());
+        }
+
+        // 5) Render table
+        System.out.println("\nRESULTS");
+        System.out.println("─".repeat(70));
+        System.out.printf("%-8s │ %-10s │ %-20s │ %-8s │ %-7s │ %-8s%n",
+                "GRD ID", "DATE", "SUBJECT", "TYPE", "GRADE", "STU ID");
+        System.out.println("─".repeat(70));
+        for (Grade g : matches) {
+            System.out.printf("%-8s │ %-10s │ %-20s │ %-8s │ %7.2f │ %-8s%n",
+                    g.getGradeId(),
+                    g.getDate(),
+                    g.getSubject().getSubjectName(),
+                    g.getSubject().getSubjectType(),
+                    g.getGrade(),
+                    g.getStudentId());
+        }
+        System.out.println("─".repeat(70));
+        System.out.println("Total Matches: " + matches.size());
+
+        // 6) Export?
+        System.out.print("\nExport results to ./reports/history_*.txt ? (Y/N): ");
+        String ex = safeTrim(scanner.nextLine()).toUpperCase();
+        if ("Y".equals(ex)) {
+            try {
+                java.nio.file.Path reports = java.nio.file.Paths.get("./reports");
+                if (!java.nio.file.Files.exists(reports)) java.nio.file.Files.createDirectories(reports);
+                String ts = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+                java.nio.file.Path target = reports.resolve("history_" + (studentId == null ? "all" : studentId) + "_" + ts + ".txt");
+
+                StringBuilder out = new StringBuilder();
+                out.append("QUERY GRADE HISTORY\n").append("─".repeat(70)).append(System.lineSeparator());
+                out.append(String.format("%-8s │ %-10s │ %-20s │ %-8s │ %-7s │ %-8s%n",
+                        "GRD ID", "DATE", "SUBJECT", "TYPE", "GRADE", "STU ID"));
+                out.append("─".repeat(70)).append(System.lineSeparator());
+                for (Grade g : matches) {
+                    out.append(String.format("%-8s │ %-10s │ %-20s │ %-8s │ %7.2f │ %-8s%n",
+                            g.getGradeId(),
+                            g.getDate(),
+                            g.getSubject().getSubjectName(),
+                            g.getSubject().getSubjectType(),
+                            g.getGrade(),
+                            g.getStudentId()));
+                }
+                out.append("─".repeat(70)).append(System.lineSeparator());
+                out.append("Total Matches: ").append(matches.size()).append(System.lineSeparator());
+
+                java.nio.file.Files.writeString(
+                        target, out.toString(),
+                        java.nio.charset.StandardCharsets.UTF_8,
+                        java.nio.file.StandardOpenOption.CREATE,
+                        java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
+                );
+
+                System.out.println("\n✓ Exported: " + target.toAbsolutePath());
+            } catch (Exception e) {
+                com.amalitech.util.ErrorHandler.handle("Query Grade History > export", e);
+            }
+        }
+
+        System.out.print("\nPress Enter to continue...");
+        scanner.nextLine();
+    }
+
+
+// OPTION 17: CACHE MANAGEMENT Helper (show stats; warm; benchmark; clear/reset)
+    private static void cacheManagement(
+            Scanner scanner,
+            StudentManager studentManager,
+            GradeManager gradeManager
+    ) {
+        System.out.println("\nCACHE MANAGEMENT");
+        System.out.println("─".repeat(60));
+
+        while (true) {
+            // Stats (uses hitRateText; extras if CacheService getters exist)
+            System.out.println("\nCache Status:");
+            String hr = CACHE == null ? "n/a" : CACHE.hitRateText();
+            System.out.println(" Hit Rate: " + hr);
+
+            // The following calls require the tiny getters added to CacheService (see section 3).
+            try {
+                int sz = CACHE.size();
+                long h = CACHE.hits();
+                long m = CACHE.misses();
+                System.out.println(" Size: " + sz + " entries   |  Hits: " + h + "  Misses: " + m);
+            } catch (Throwable ignored) {
+
+            }
+
+            System.out.println("\nActions:");
+            System.out.println(" 1. Warm common entries (subjects, students, stats)");
+            System.out.println(" 2. Benchmark repeated lookups (simulate hits)");
+            System.out.println(" 3. Clear cache entries");
+            System.out.println(" 4. Reset hit/miss counters");
+            System.out.println(" 5. Back to main menu");
+            System.out.print("\nSelect (1-5): ");
+
+            int act;
+            try { act = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { act = 5; }
+
+            if (act == 5) return;
+
+            long t0 = System.nanoTime();
+            try {
+                switch (act) {
+                    case 1 -> {
+                        // Warm typical keys
+                        CACHE.getOrLoad("subjects", () -> java.util.List.of("Mathematics", "English", "Science"));
+                        CACHE.getOrLoad("students", () -> java.util.Arrays.asList(studentManager.getStudents()));
+                        CACHE.getOrLoad("gradeCount", gradeManager::getGradeCount);
+                        System.out.println("\n✓ Cache warmed.");
+                    }
+                    case 2 -> {
+                        // Repeated lookups to drive hit ratio
+                        Object s = CACHE.get("subjects");
+                        for (int i = 0; i < 500; i++) {
+                            CACHE.get("subjects");
+                            CACHE.get("students");
+                            CACHE.get("gradeCount");
+                        }
+                        System.out.println("\n✓ Benchmark complete.");
+                    }
+                    case 3 -> {
+
+                        try {
+                            CACHE.clearAll();
+                            System.out.println("\n✓ Cache cleared.");
+                        } catch (Throwable t) {
+                            System.out.println("\n(Info) clearAll() not available. Fill-to-evict fallback:");
+                            // fallback: fill until eviction policy clears (simple strategy)
+                            for (int i = 0; i < 1000; i++) {
+                                final int k = i;
+                                CACHE.getOrLoad("tmp_" + k, () -> new byte[1024]);
+                            }
+                            System.out.println("   Attempted to trigger eviction by size.");
+                        }
+                    }
+                    case 4 -> {
+
+                        try {
+                            CACHE.resetStats();
+                            System.out.println("\n✓ Hit/Miss counters reset.");
+                        } catch (Throwable t) {
+                            System.out.println("\n(Info) resetStats() not available in CacheService.");
+                        }
+                    }
+                    default -> System.out.println("\nInvalid action.");
+                }
+            } catch (Exception e) {
+                com.amalitech.util.ErrorHandler.handle("Cache Management", e);
+            } finally {
+                long ns = System.nanoTime() - t0;
+                System.out.println(" Time: " + String.format("%.1fms", ns / 1_000_000.0));
+            }
+
+            System.out.print("\nPress Enter to refresh...");
+            scanner.nextLine();
+        }
+    }
+
+
+// OPTION 18: AUDIT TRAIL VIEWER (tail, filter by level/keyword, export, clear)
+    private static void auditTrailViewer(Scanner scanner) {
+        System.out.println("\nAUDIT TRAIL VIEWER");
+        System.out.println("─".repeat(60));
+        java.nio.file.Path logFile = java.nio.file.Paths.get("./logs/app.log");
+
+        if (!java.nio.file.Files.exists(logFile)) {
+            System.out.println("(No log file yet at ./logs/app.log)");
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
+
+        while (true) {
+            System.out.println("\nActions:");
+            System.out.println(" 1. Tail last N lines");
+            System.out.println(" 2. Filter by level (INFO/ERROR)");
+            System.out.println(" 3. Search by keyword");
+            System.out.println(" 4. Export current view");
+            System.out.println(" 5. Clear log (archive then truncate)");
+            System.out.println(" 6. Back to main menu");
+            System.out.print("\nSelect (1-6): ");
+
+            int act;
+            try { act = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { act = 6; }
+            if (act == 6) return;
+
+            try {
+                switch (act) {
+                    case 1 -> {
+                        System.out.print("Enter N (e.g., 100): ");
+                        int n; try { n = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { n = 100; }
+                        java.util.List<String> lines = tail(logFile, Math.max(1, n));
+                        printLines(lines);
+                    }
+                    case 2 -> {
+                        System.out.print("Enter level (INFO/ERROR): ");
+                        String level = safeTrim(scanner.nextLine()).toUpperCase();
+                        java.util.stream.Stream<String> s = java.nio.file.Files.lines(logFile, java.nio.charset.StandardCharsets.UTF_8);
+                        java.util.List<String> lines = s.filter(l -> l.contains("[" + level + "]")).toList();
+                        s.close();
+                        printLines(lines);
+                        lastViewCache = lines; // allow export
+                    }
+                    case 3 -> {
+                        System.out.print("Enter keyword: ");
+                        String kw = safeTrim(scanner.nextLine()).toLowerCase();
+                        java.util.stream.Stream<String> s = java.nio.file.Files.lines(logFile, java.nio.charset.StandardCharsets.UTF_8);
+                        java.util.List<String> lines = s.filter(l -> l.toLowerCase().contains(kw)).toList();
+                        s.close();
+                        printLines(lines);
+                        lastViewCache = lines; // allow export
+                    }
+                    case 4 -> {
+                        if (lastViewCache == null || lastViewCache.isEmpty()) {
+                            System.out.println("(No current view to export — run tail/filter/search first.)");
+                        } else {
+                            java.nio.file.Path reports = java.nio.file.Paths.get("./reports");
+                            if (!java.nio.file.Files.exists(reports)) java.nio.file.Files.createDirectories(reports);
+                            String ts = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+                            java.nio.file.Path out = reports.resolve("audit_view_" + ts + ".log");
+                            java.nio.file.Files.write(out, lastViewCache, java.nio.charset.StandardCharsets.UTF_8,
+                                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+                            System.out.println("\n✓ Exported: " + out.toAbsolutePath());
+                        }
+                    }
+                    case 5 -> {
+                        // Archive then truncate
+                        java.nio.file.Path logsDir = logFile.getParent();
+                        if (logsDir != null && !java.nio.file.Files.exists(logsDir)) java.nio.file.Files.createDirectories(logsDir);
+                        String ts = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+                        java.nio.file.Path archive = logsDir.resolve("app_" + ts + ".log");
+                        java.nio.file.Files.copy(logFile, archive, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        java.nio.file.Files.writeString(logFile, "", java.nio.charset.StandardCharsets.UTF_8,
+                                java.nio.file.StandardOpenOption.TRUNCATE_EXISTING, java.nio.file.StandardOpenOption.CREATE);
+                        System.out.println("\n✓ Archived to: " + archive.getFileName() + " and cleared active log.");
+                    }
+                    default -> System.out.println("Invalid choice.");
+                }
+            } catch (Exception e) {
+                com.amalitech.util.ErrorHandler.handle("Audit Trail Viewer", e);
+            }
+
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+        }
+    }
+
+    // Small state for "export current view"
+    private static java.util.List<String> lastViewCache = null;
+
+    private static java.util.List<String> tail(java.nio.file.Path file, int n) throws java.io.IOException {
+        java.util.Deque<String> dq = new java.util.ArrayDeque<>(n);
+        try (java.io.BufferedReader br = java.nio.file.Files.newBufferedReader(file, java.nio.charset.StandardCharsets.UTF_8)) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (dq.size() == n) dq.removeFirst();
+                dq.addLast(line);
+            }
+        }
+        return new java.util.ArrayList<>(dq);
+    }
+
+    private static void printLines(java.util.List<String> lines) {
+        System.out.println("\n" + (lines.isEmpty() ? "(no results)" : ""));
+        for (String l : lines) System.out.println(l);
+    }
+
+
     //Helper list to track scheduled tasks
     private static final java.util.List<String> scheduledTasks = new java.util.ArrayList<>();
 
@@ -168,8 +551,6 @@ public class Main {
                 System.out.println("Invalid input. Please enter a number.");
                 continue;
             }
-
-
 
             switch (choice) {
                 case 1 -> addStudent(scanner, studentManager);
@@ -321,8 +702,9 @@ public class Main {
                 }
                 case 13 -> patternBasedSearch(scanner, studentManager, gradeManager);
 
-                case 14 -> { /* Query grade history (NEW) */
-                    System.out.println("Query Grade History — to be implemented.");
+
+                case 14 -> { /* Query grade history [NEW] */
+                    queryGradeHistory(scanner, studentManager, gradeManager);
                 }
 
 
@@ -415,14 +797,27 @@ public class Main {
                 }
 
 
-                case 16 -> { /* View system performance (NEW) */
-                    System.out.println("View System Performance — to be implemented.");
+
+                case 16 -> { /* View system performance [NEW] */
+                    new com.amalitech.monitor.SystemPerformanceMonitor(2).runInteractive(
+                            scanner,
+                            studentManager,
+                            gradeManager,
+                            (java.util.concurrent.ExecutorService) fixedPool,
+                            (java.util.concurrent.ExecutorService) cachedPool,
+                            (java.util.concurrent.ScheduledExecutorService) scheduler,
+                            CACHE // your CacheService<String,Object>
+                    );
                 }
-                case 17 -> { /* Cache management (NEW) */
-                    System.out.println("Cache Management — to be implemented.");
+
+
+
+                case 17 -> { /* Cache management [NEW] */
+                    cacheManagement(scanner, studentManager, gradeManager);
                 }
-                case 18 -> { /* Audit trail viewer (NEW) */
-                    System.out.println("Audit Trail Viewer — to be implemented.");
+
+                case 18 -> { /* Audit trail viewer [NEW] */
+                    auditTrailViewer(scanner);
                 }
                 case 19 -> {
                     System.out.println("Thank you for using Grade Management System!");
@@ -447,7 +842,7 @@ public class Main {
 
         System.out.println();
         System.out.println("STUDENT MANAGEMENT");
-        System.out.println("  1. Add Student (with validation)");
+        System.out.println("  1. Add Student ");
         System.out.println("  2. View Students");
         System.out.println("  3. Record Grade");
         System.out.println("  4. View Grade Report");
@@ -455,32 +850,32 @@ public class Main {
         System.out.println();
         System.out.println("FILE OPERATIONS");
         System.out.println("  5. Export Grade Report (CSV/JSON/Binary)");
-        System.out.println("  6. Import Data (Multi-format support)   [ENHANCED]");
+        System.out.println("  6. Import Data (Multi-format support)   ");
         System.out.println("  7. Bulk Import Grades");
 
         System.out.println();
         System.out.println("ANALYTICS & REPORTING");
         System.out.println("  8.  Calculate Student GPA");
         System.out.println("  9.  View Class Statistics");
-        System.out.println(" 10. Real-Time Statistics Dashboard       [NEW]");
-        System.out.println(" 11. Generate Batch Reports               [NEW]");
+        System.out.println(" 10. Real-Time Statistics Dashboard");
+        System.out.println(" 11. Generate Batch Reports");
 
         System.out.println();
         System.out.println("SEARCH & QUERY");
-        System.out.println(" 12. Search Students (Advanced)           [ENHANCED]");
-        System.out.println(" 13. Pattern-Based Search                 [NEW]");
-        System.out.println(" 14. Query Grade History                  [NEW]");
+        System.out.println(" 12. Search Students (Advanced)");
+        System.out.println(" 13. Pattern-Based Search");
+        System.out.println(" 14. Query Grade History");
 
         System.out.println();
         System.out.println("ADVANCED FEATURES");
-        System.out.println(" 15. Schedule Automated Tasks             [NEW]");
-        System.out.println(" 16. View System Performance              [NEW]");
-        System.out.println(" 17. Cache Management                     [NEW]");
-        System.out.println(" 18. Audit Trail Viewer                   [NEW]");
+        System.out.println(" 15. Schedule Automated Tasks");
+        System.out.println(" 16. View System Performance ");
+        System.out.println(" 17. Cache Management");
+        System.out.println(" 18. Audit Trail Viewer ");
         System.out.println(" 19. Exit");
     }
 
-    /** Prints the status line shown in your screenshot and the input prompt. */
+    //Prints the status line shown in your screenshot and the input prompt.
     private static void renderPrompt() {
         System.out.println();
         System.out.println(BackgroundTaskTracker.statusLine());
