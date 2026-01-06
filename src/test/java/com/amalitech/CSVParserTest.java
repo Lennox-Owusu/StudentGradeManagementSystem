@@ -1,6 +1,7 @@
 
 package com.amalitech;
 
+import com.amalitech.exceptions.CsvFormatException;
 import com.amalitech.io.CSVParser;
 import org.junit.Test;
 
@@ -11,7 +12,7 @@ import static org.junit.Assert.*;
 
 public class CSVParserTest {
     @Test
-    public void parses_header_and_skips_blanks() {
+    public void parses_header_and_skips_blanks() throws CsvFormatException {
         CSVParser parser = new CSVParser();
         List<String> lines = Arrays.asList(
                 "StudentID,SubjectName,SubjectType,Grade",
@@ -27,7 +28,7 @@ public class CSVParserTest {
     }
 
     @Test
-    public void preserves_empty_tokens() {
+    public void preserves_empty_tokens() throws CsvFormatException {
         CSVParser parser = new CSVParser();
         List<String> lines = Arrays.asList(
                 "StudentID,SubjectName,SubjectType,Grade",
