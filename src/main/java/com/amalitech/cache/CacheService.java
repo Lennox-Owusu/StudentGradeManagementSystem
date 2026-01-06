@@ -20,16 +20,15 @@ public final class CacheService<K, V> {
         return v;
     }
 
-    public V getOrLoad(K key, Supplier<V> loader) {
+    public void getOrLoad(K key, Supplier<V> loader) {
         V v = map.get(key);
-        if (v != null) { hits.increment(); return v; }
+        if (v != null) { hits.increment(); return; }
         misses.increment();
         v = loader.get();
         if (map.size() >= maxSize) {
             map.clear();
         }
         map.put(key, v);
-        return v;
     }
 
     //e.g., "87.3%"

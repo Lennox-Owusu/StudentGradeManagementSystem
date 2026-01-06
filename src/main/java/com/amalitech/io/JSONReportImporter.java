@@ -23,13 +23,13 @@ public final class JSONReportImporter implements Importer<StudentReport> {
     private static final Pattern NUM = Pattern.compile("\"%s\"\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)");
     // grade object matcher (greedy-safe, DOTALL)
     private static final Pattern GRADE_OBJ = Pattern.compile(
-            "\\{\\s*\"id\"\\s*:\\s*\"(.*?)\".*?\"date\"\\s*:\\s*\"(.*?)\".*?\"subject\"\\s*:\\s*\\{\\s*\"name\"\\s*:\\s*\"(.*?)\"\\s*,\\s*\"type\"\\s*:\\s*\"(.*?)\"\\s*}\\s*,\\s*\"grade\"\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)\\s*\\}",
+            "\\{\\s*\"id\"\\s*:\\s*\"(.*?)\".*?\"date\"\\s*:\\s*\"(.*?)\".*?\"subject\"\\s*:\\s*\\{\\s*\"name\"\\s*:\\s*\"(.*?)\"\\s*,\\s*\"type\"\\s*:\\s*\"(.*?)\"\\s*}\\s*,\\s*\"grade\"\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)\\s*}",
             Pattern.DOTALL);
 
     @Override
     public StudentReport importFrom(Path source) throws ImportFailedException, JsonFormatException {
         if (source == null || !Files.exists(source) || !Files.isRegularFile(source)) {
-            throw new ImportFailedException("JSON file not found: " + String.valueOf(source));
+            throw new ImportFailedException("JSON file not found: " + source);
         }
 
         String json;
@@ -64,7 +64,7 @@ public final class JSONReportImporter implements Importer<StudentReport> {
             grades.add(new Grade(sid, subject, gradeVal));
         }
 
-        // aggregates (optional safety)
+        // aggregates
         Double coreAvg   = findNum(json, "coreAverage");
         Double elecAvg   = findNum(json, "electiveAverage");
         Double overall   = findNum(json, "overallAverage");

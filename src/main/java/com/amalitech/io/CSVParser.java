@@ -12,7 +12,7 @@ public class CSVParser {
 
         int start = 0;
         if (hasHeader) {
-            if (!isHeader(lines.get(0))) {
+            if (!isHeader(lines.getFirst())) {
                 throw new CsvFormatException("Header must be: StudentID,SubjectName,SubjectType,Grade");
             }
             start = 1;

@@ -23,7 +23,6 @@ import java.util.List;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.io.BufferedReader;
 import java.util.Scanner;
 
 
@@ -787,13 +786,11 @@ public class Main {
                         long h = initialDelay / 3600; long m = (initialDelay % 3600) / 60; long s = initialDelay % 60;
                         System.out.printf("  Initial Delay: %dh %dm %ds%n", h, m, s);
                         System.out.println("\nThe task will run automatically in the background.");
-                        System.out.print("\nPress Enter to continue...");
-                        scanner.nextLine();
                     } else {
                         System.out.println("\n(Selected task type is a placeholder)");
-                        System.out.print("\nPress Enter to continue...");
-                        scanner.nextLine();
                     }
+                    System.out.print("\nPress Enter to continue...");
+                    scanner.nextLine();
                 }
 
 
@@ -1257,10 +1254,10 @@ public class Main {
                 break;
             } catch (NumberFormatException nfe) {
                 com.amalitech.util.ErrorHandler.handle("Record Grade > parse number", nfe);
-                if (!retry(scanner)) return;
+                if (retry(scanner)) return;
             } catch (com.amalitech.exceptions.InvalidGradeException ige) {
                 com.amalitech.util.ErrorHandler.handle("Record Grade > range check", ige);
-                if (!retry(scanner)) return;
+                if (retry(scanner)) return;
             }
 
 
@@ -2244,7 +2241,6 @@ public class Main {
                         fieldLabel = switch (fsel) {
                             case 1 -> "id";
                             case 2 -> "name";
-                            case 3 -> "email";
                             case 4 -> "phone";
                             default -> "email";
                         };
@@ -2283,7 +2279,6 @@ public class Main {
                 String target = switch (fieldLabel) {
                     case "id"    -> id;
                     case "name"  -> nm;
-                    case "email" -> em;
                     case "phone" -> ph;
                     default      -> em;
                 };
@@ -2459,7 +2454,7 @@ public class Main {
             }
 
             System.out.println("\n✓ Reports generated for matched students!");
-            System.out.println(" Output Location: " + base.toString());
+            System.out.println(" Output Location: " + base);
             System.out.printf(" Total Files Generated: %d%n", matches.size());
             System.out.printf(" Total Size: %.1f KB%n", bytes / 1024.0);
         } catch (java.io.IOException io) {
@@ -2690,7 +2685,7 @@ public class Main {
     private static boolean retry(Scanner scanner) {
         System.out.print("\nTry again? (Y/N): ");
         String retry = scanner.nextLine().trim().toUpperCase();
-        return "Y".equals(retry);
+        return !"Y".equals(retry);
     }
 
 

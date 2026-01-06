@@ -22,7 +22,7 @@ public final class CSVReportImporter implements Importer<StudentReport> {
     @Override
     public StudentReport importFrom(Path source) throws ImportFailedException, CsvFormatException {
         if (source == null || !Files.exists(source) || !Files.isRegularFile(source)) {
-            throw new ImportFailedException("CSV file not found: " + String.valueOf(source));
+            throw new ImportFailedException("CSV file not found: " + source);
         }
 
         List<String> lines = new ArrayList<>();
@@ -37,13 +37,13 @@ public final class CSVReportImporter implements Importer<StudentReport> {
             throw new CsvFormatException("CSV is empty.");
 
         // Validate header (tolerate casing/whitespace;
-        String header = lines.get(0).trim().toLowerCase();
+        String header = lines.getFirst().trim().toLowerCase();
         String expected = "studentid,name,email,phone,type,subject,type,grade,date";
         if (!header.equals(expected)) {
             throw new CsvFormatException("Unexpected header. Expected: " + expected);
         }
 
-        String studentId = null, name = null, email = null, phone = null, studentType = null;
+        String studentId = null, name = null, email = null, phone = null;
         List<Grade> grades = new ArrayList<>();
 
         for (int i = 1; i < lines.size(); i++) {
@@ -62,18 +62,16 @@ public final class CSVReportImporter implements Importer<StudentReport> {
             String sname = unescape(cols[1]);
             String semail = unescape(cols[2]);
             String sphone = unescape(cols[3]);
-            String stype = cols[4].trim();
             String subjName = unescape(cols[5]);
             String subjType = cols[6].trim();
             String gradeStr = cols[7].trim();
-            String date = cols[8].trim(); // Grade DTO stores date automatically;
+            // Grade DTO stores date automatically;
 
             if (studentId == null) {
                 studentId = sid;
                 name = sname;
                 email = semail;
                 phone = sphone;
-                studentType = stype;
             } else if (!studentId.equalsIgnoreCase(sid)) {
                 throw new CsvFormatException("Multiple StudentIDs detected (" + studentId + " vs " + sid + ").");
             }

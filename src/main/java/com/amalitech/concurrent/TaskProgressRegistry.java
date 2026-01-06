@@ -6,15 +6,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 //Registry of named task progress: percentage + threads + status.
 public final class TaskProgressRegistry {
-    public static final class TaskInfo {
-        public final String name;
-        public final int percent;          // 0–100
-        public final int threads;          // number of threads working
-        public final boolean completed;
-
-        public TaskInfo(String name, int percent, int threads, boolean completed) {
-            this.name = name; this.percent = percent; this.threads = threads; this.completed = completed;
-        }
+    /**
+     * @param percent 0–100
+     * @param threads number of threads working
+     */
+    public record TaskInfo(String name, int percent, int threads, boolean completed) {
     }
 
     private static final ConcurrentHashMap<String, TaskInfo> TASKS = new ConcurrentHashMap<>();
