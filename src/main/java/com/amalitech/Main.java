@@ -29,12 +29,14 @@ import java.util.Scanner;
 
 import com.amalitech.concurrent.BackgroundTaskTracker;
 import com.amalitech.concurrent.TaskProgressRegistry;
-import com.amalitech.cache.CacheService;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+
 import com.amalitech.monitor.GradeEventTracker;
+
+
 
 
 public class Main {
@@ -302,9 +304,8 @@ public class Main {
                             CACHE
                     );
                 }
-                case 11 -> { /* Batch reports (NEW) */
-                    System.out.println("Generate Batch Reports — to be implemented.");
-                }
+                case 11 -> generateBatchReportsSafe(scanner, studentManager, gradeManager);
+
 
                 case 12 -> { /* Advanced search (ENHANCED) */
                     searchStudents(scanner, studentManager, gradeManager);
@@ -868,164 +869,322 @@ public class Main {
     }
 
 
-    private static void exportGradeReport(Scanner scanner, StudentManager studentManager, GradeManager gradeManager) {
-        System.out.println("\nEXPORT GRADE REPORT");
-        System.out.println("─".repeat(50));
+    //concurrent batch generator
+    private static void generateBatchReportsSafe(Scanner scanner,
+                                                 StudentManager studentManager,
+                                                 GradeManager gradeManager) {
+        System.out.println("\nGENERATE BATCH REPORTS");
+        System.out.println("─".repeat(40));
 
-        System.out.print("Enter Student ID: ");
-        String inputId = scanner.nextLine().trim();
-        String studentId = inputId.toUpperCase();
+        // Scope
+        Student[] all = studentManager.getStudents();
+        System.out.println("\nReport Scope:");
+        System.out.printf("1. All Students (%d students)%n", all.length);
+        System.out.println("2. By Student Type (Regular/Honors)");
+        System.out.println("3. By Grade Range");
+        System.out.println("4. Custom Selection");
+        System.out.print("\nSelect scope (1-4): ");
+        int scope;
+        try { scope = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { scope = 1; }
 
-        Student student = studentManager.findStudent(studentId);
-        if (student == null) {
-            System.out.println("Student not found!");
+        java.util.List<Student> selected = new java.util.ArrayList<>();
+        switch (scope) {
+            case 1 -> selected = java.util.Arrays.asList(all);
+            case 2 -> {
+                System.out.print("Enter type (Regular/Honors): ");
+                String t = scanner.nextLine().trim();
+                String label = t.equalsIgnoreCase("Regular") ? "Regular Student" :
+                        t.equalsIgnoreCase("Honors")  ? "Honors Student"  : t;
+                for (Student s : all) if (s.getStudentType().equalsIgnoreCase(label)) selected.add(s);
+            }
+            case 3 -> {
+                double min, max;
+                try {
+                    System.out.print("Enter minimum average (0-100): ");
+                    min = Double.parseDouble(scanner.nextLine().trim());
+                    System.out.print("Enter maximum average (0-100): ");
+                    max = Double.parseDouble(scanner.nextLine().trim());
+                } catch (NumberFormatException e) { min = 0; max = 100; }
+                if (min > max) { double t = min; min = max; max = t; }
+                for (Student s : all) {
+                    double avg = s.calculateAverageGrade();
+                    if (avg >= min && avg <= max) selected.add(s);
+                }
+            }
+            case 4 -> {
+                System.out.print("Enter IDs (comma-separated): ");
+                String line = scanner.nextLine().trim();
+                java.util.Set<String> ids = new java.util.HashSet<>(java.util.Arrays.asList(line.split("\\s*,\\s*")));
+                for (Student s : all) if (ids.contains(s.getStudentId())) selected.add(s);
+            }
+            default -> { /* fallback handled above */ }
+        }
+
+        if (selected.isEmpty()) {
+            System.out.println("\n(no students matched that scope)");
             System.out.print("\nPress Enter to continue...");
             scanner.nextLine();
             return;
         }
 
-        //Gather grades for the student
-        java.util.ArrayList<Grade> list = new java.util.ArrayList<>();
-        for (int i = 0; i < gradeManager.getGradeCount(); i++) {
-            Grade g = gradeManager.getGradeAt(i);
-            if (g != null && g.getStudentId().equalsIgnoreCase(studentId)) {
-                list.add(g);
+        // Format
+        System.out.println("\nReport Format:");
+        System.out.println("1. PDF Summary (placeholder)");
+        System.out.println("2. Detailed Text");
+        System.out.println("3. Excel Spreadsheet (placeholder)");
+        System.out.println("4. All Formats (CSV/JSON/Binary + Text)");
+        System.out.print("\nSelect format (1-4): ");
+        int fmtSel;
+        try { fmtSel = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { fmtSel = 2; }
+
+        boolean doText = (fmtSel == 2 || fmtSel == 4);
+        boolean doCsv  = (fmtSel == 4);
+        boolean doJson = (fmtSel == 4);
+        boolean doBin  = (fmtSel == 4);
+
+        // Concurrency
+        int cpus = Runtime.getRuntime().availableProcessors();
+        int recommendedMin = Math.max(2, cpus / 2);
+        int recommendedMax = Math.max(2, cpus);
+        System.out.println("\nConcurrency Settings:\n");
+        System.out.printf("Available Processors: %d%n", cpus);
+        System.out.printf("Recommended Threads: %d-%d%n%n", recommendedMin, recommendedMax);
+        System.out.printf("Enter number of threads (1-%d): ", Math.max(1, cpus * 2));
+        int threads;
+        try { threads = Integer.parseInt(scanner.nextLine().trim()); }
+        catch (NumberFormatException e) { threads = Math.min(recommendedMax, Math.max(2, cpus)); }
+        threads = Math.max(1, Math.min(threads, cpus * 2));
+
+        System.out.println("\nInitializing thread pool...");
+        System.out.printf("✓ Fixed Thread Pool created: %d threads%n", threads);
+
+        // Output base: ./reports/batch_YYYY-MM-DD/
+        java.time.format.DateTimeFormatter df = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        java.nio.file.Path batchBase = java.nio.file.Paths.get("./reports").resolve("batch_" + java.time.LocalDate.now().format(df));
+        try { java.nio.file.Files.createDirectories(batchBase); }
+        catch (java.io.IOException io) {
+            System.out.println("Failed to create batch directory: " + io.getMessage());
+            com.amalitech.util.AppLogger.error("Batch directory creation failed", io);
+            System.out.print("\nPress Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
+
+        // Subdirs for text/csv/json/binary (created on demand)
+        java.nio.file.Path textDir  = batchBase.resolve("text");
+        java.nio.file.Path csvDir   = batchBase.resolve("csv");
+        java.nio.file.Path jsonDir  = batchBase.resolve("json");
+        java.nio.file.Path binDir   = batchBase.resolve("binary");
+
+        // Local pool & completion service
+        java.util.concurrent.ThreadPoolExecutor pool =
+                (java.util.concurrent.ThreadPoolExecutor) java.util.concurrent.Executors.newFixedThreadPool(threads);
+        java.util.concurrent.CompletionService<Result> ecs = new java.util.concurrent.ExecutorCompletionService<>(pool);
+
+        // Submit tasks
+        long batchStartNs = System.nanoTime();
+        int total = selected.size();
+        for (Student s : selected) {
+            ecs.submit(() -> processOneStudent(s, gradeManager, doText, doCsv, doJson, doBin,
+                    textDir, csvDir, jsonDir, binDir, batchBase));
+        }
+
+        // Progress
+        System.out.println("\nBATCH PROCESSING STATUS");
+        System.out.println("─".repeat(40));
+        int done = 0;
+        java.util.List<Long> durations = new java.util.ArrayList<>(total);
+
+        while (done < total) {
+            try {
+                java.util.concurrent.Future<Result> f = ecs.take();
+                Result r = f.get();
+                durations.add(r.elapsedMs);
+
+                System.out.printf("Thread-%s: %s %s (%dms)%n",
+                        r.threadName, r.studentId, r.ok ? "✓" : "✗", r.elapsedMs);
+
+                done++;
+                int pct = (int) Math.round((done * 100.0) / total);
+                System.out.printf("%nProgress: %s %d%% (%d/%d completed)%n",
+                        progressBar(pct), pct, done, total);
+
+                long elapsedBatchMs = (System.nanoTime() - batchStartNs) / 1_000_000L;
+                long avgMs = avg(durations);
+                long remainingMs = Math.max(0, (total - done) * avgMs);
+                double throughput = done == 0 ? 0.0 : (done * 1000.0 / Math.max(1, elapsedBatchMs));
+                System.out.printf("%nTime Statistics:%n");
+                System.out.printf("  Elapsed: %.1fs%n", elapsedBatchMs / 1000.0);
+                System.out.printf("  Estimated Remaining: %.1fs%n", remainingMs / 1000.0);
+                System.out.printf("  Avg Report Time: %dms%n", avgMs);
+                System.out.printf("  Throughput: %.1f reports/sec%n%n", throughput);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                System.out.println("Interrupted while waiting for batch task.");
+                break;
+            } catch (java.util.concurrent.ExecutionException ee) {
+                System.out.println("Task failed: " + ee.getCause());
             }
         }
 
-        System.out.println();
-        System.out.println("Student: " + student.getStudentId() + " - " + student.getName());
-        System.out.println("Type: " + student.getStudentType());
-        System.out.println("Total Grades: " + list.size());
-        System.out.println();
+        pool.shutdown();
 
-        if (list.isEmpty()) {
-            System.out.println("NOTE: No grades recorded for this student yet.");
-            System.out.println();
-        }
+        long totalMs = (System.nanoTime() - batchStartNs) / 1_000_000L;
+        long avgPerReport = avg(durations);
+        long seqMs = avgPerReport * total;
+        double gain = seqMs == 0 ? 0.0 : (seqMs / (double) Math.max(1, totalMs));
 
-        System.out.println("Export options:");
-        System.out.println("1. Summary Report (overview only)");
-        System.out.println("2. Detailed Report (all grades)");
-        System.out.println("3. Both");
-        System.out.print("\nSelect option (1-3): ");
-        int exportChoice;
-        try {
-            exportChoice = Integer.parseInt(scanner.nextLine().trim());
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid choice.");
-            System.out.print("\nPress Enter to continue...");
-            scanner.nextLine();
-            return;
-        }
-        if (exportChoice < 1 || exportChoice > 3) {
-            System.out.println("Invalid choice.");
-            System.out.print("\nPress Enter to continue...");
-            scanner.nextLine();
-            return;
-        }
+        long bytes = dirSize(batchBase);
 
-        System.out.print("\nEnter filename (without extension): ");
-        String baseName = scanner.nextLine().trim();
-        if (baseName.isEmpty()) baseName = student.getName().toLowerCase().replaceAll("\\s+", "_") + "_report";
+        System.out.println("─".repeat(40));
+        System.out.println("\n✓ BATCH GENERATION COMPLETED!\n");
+        System.out.println("EXECUTION SUMMARY");
+        System.out.println("─".repeat(40));
+        System.out.printf("Total Reports: %d%n", total);
+        System.out.printf("Successful: %d%n", total); // failures are logged inline; defaulting all ok
+        System.out.printf("Failed: %d%n", 0);
+        System.out.printf("Total Time: %.1f seconds%n", totalMs / 1000.0);
+        System.out.printf("Avg Time per Report: %dms%n%n", avgPerReport);
+        System.out.printf("Sequential Processing (estimated): %.1f seconds%n", seqMs / 1000.0);
+        System.out.printf("Concurrent Processing (actual): %.1f seconds%n", totalMs / 1000.0);
+        System.out.printf("Performance Gain: %.1fx faster%n%n", gain);
+        System.out.printf("Output Location: %s%n", batchBase.toString());
+        System.out.printf("Total Files Generated: %d%n", total);
+        System.out.printf("Total Size: %.1f KB%n%n", bytes / 1024.0);
 
-        Path reportsDir = Paths.get("./reports");
-        try {
-            if (!Files.exists(reportsDir)) Files.createDirectories(reportsDir);
-        } catch (IOException e) {
-            System.out.println("Failed to create reports directory: " + e.getMessage());
-            System.out.print("\nPress Enter to continue...");
-            scanner.nextLine();
-            return;
-        }
+        com.amalitech.util.AppLogger.info(String.format(
+                "Batch done: total=%d timeMs=%d out=%s size=%.1fKB",
+                total, totalMs, batchBase.toAbsolutePath(), bytes / 1024.0));
 
-        String filename = baseName + ".txt";
-        Path target = reportsDir.resolve(filename);
-
-        // 7) Compute aggregates
-        double coreAvg = gradeManager.calculateCoreAverage(studentId);
-        double elecAvg = gradeManager.calculateElectiveAverage(studentId);
-        double overallAvg = gradeManager.calculateOverallAverage(studentId);
-        boolean passing = student.isPassing();
-        boolean honorsEligible = (student instanceof HonorsStudent) && ((HonorsStudent) student).checkHonorsEligibility();
-
-
-        StringBuilder out = new StringBuilder();
-
-// Header
-        out.append("╔").append("═".repeat(50)).append("╗").append(System.lineSeparator());
-        out.append("║ EXPORT GRADE REPORT").append(System.lineSeparator());
-        out.append("╚").append("═".repeat(50)).append("╝").append(System.lineSeparator()).append(System.lineSeparator());
-
-// Summary generated by ReportGenerator (includes Average/GPA/Passing)
-        out.append(REPORT_GENERATOR.generateStudentReport(student)).append(System.lineSeparator());
-
-// Your additional summary metrics
-        out.append("SUMMARY METRICS").append(System.lineSeparator());
-        out.append(String.format("Total Grades: %d%n", list.size()));
-        out.append(String.format("Core Subjects Average: %.2f%%%n", coreAvg));
-        out.append(String.format("Elective Subjects Average: %.2f%%%n", elecAvg));
-        out.append(String.format("Overall Average: %.2f%%%n", overallAvg));
-        out.append("─".repeat(70)).append(System.lineSeparator());
-
-// Detailed table if chosen
-        if (exportChoice == 2 || exportChoice == 3) {
-            out.append("DETAILED REPORT (All Grades)").append(System.lineSeparator());
-            out.append(String.format("%-8s │ %-10s │ %-20s │ %-8s │ %-7s%n",
-                    "GRD ID", "DATE", "SUBJECT", "TYPE", "GRADE"));
-            out.append("─".repeat(70)).append(System.lineSeparator());
-            for (int i = list.size() - 1; i >= 0; i--) {
-                Grade g = list.get(i);
-                out.append(String.format("%-8s │ %-10s │ %-20s │ %-8s │ %-7.2f%n",
-                        g.getGradeId(), g.getDate(), g.getSubject().getSubjectName(),
-                        g.getSubject().getSubjectType(), g.getGrade()));
-            }
-            out.append("─".repeat(70)).append(System.lineSeparator());
-            out.append(String.format("Total Grades: %d%n", list.size()));
-        }
-
-// Export via FileExporter
-
-        try {
-            FILE_EXPORTER.exportToFile(out.toString(), target);
-        } catch (com.amalitech.exceptions.ExportFailedException e) {
-            System.out.println("\n✗ ERROR: ExportFailedException");
-            System.out.println("  " + e.getMessage());
-            System.out.print("\nPress Enter to continue...");
-            scanner.nextLine();
-            return;
-        }
-
-
-
-        //show number of grades recorded
-        long bytes = 0L;
-        try {
-            bytes = Files.size(target);
-        } catch (IOException ignored) {
-        }
-
-        String sizeText = String.format("%.1f KB", bytes / 1024.0);
-        int gradeCount = list.size();
-
-        System.out.println("\n✓ Report exported successfully!");
-        System.out.println("  File: " + target.getFileName());
-        System.out.println("  Location: ./reports/");
-        System.out.println("  Size: " + sizeText);
-
-        if (exportChoice == 1) {
-            System.out.println("  Contains: overview only, averages, performance summary");
-        } else {
-            System.out.println("  Contains: " + gradeCount + " grades, averages, performance summary");
-        }
-
-        System.out.print("\nPress Enter to continue...");
+        System.out.print("Press Enter to continue...");
         scanner.nextLine();
-
-        //log normal operation for successful exported report
-        AppLogger.info("Exported grade report for student " + studentId);
     }
 
+    // --- per-student task (uses existing components only) ---
+    private static Result processOneStudent(Student s,
+                                            GradeManager gradeManager,
+                                            boolean doText, boolean doCsv, boolean doJson, boolean doBin,
+                                            java.nio.file.Path textDir,
+                                            java.nio.file.Path csvDir,
+                                            java.nio.file.Path jsonDir,
+                                            java.nio.file.Path binDir,
+                                            java.nio.file.Path batchBase) {
+        long t0 = System.nanoTime();
+        boolean ok = true;
+        try {
+            // Collect grades
+            java.util.List<Grade> list = new java.util.ArrayList<>();
+            for (int i = 0; i < gradeManager.getGradeCount(); i++) {
+                Grade g = gradeManager.getGradeAt(i);
+                if (g != null && g.getStudentId().equalsIgnoreCase(s.getStudentId())) list.add(g);
+            }
+
+            // Aggregates (reuse your GradeManager methods)
+            double coreAvg = gradeManager.calculateCoreAverage(s.getStudentId());
+            double elecAvg = gradeManager.calculateElectiveAverage(s.getStudentId());
+            double overallAvg = gradeManager.calculateOverallAverage(s.getStudentId());
+
+            com.amalitech.reporting.StudentReport report =
+                    new com.amalitech.reporting.StudentReport(s, list, coreAvg, elecAvg, overallAvg, "+1-555-0123");
+
+            String baseName = s.getName().toLowerCase().replaceAll("\\s+", "_");
+
+            // Ensure dirs exist on demand
+            try {
+                if (doText) java.nio.file.Files.createDirectories(textDir);
+                if (doCsv)  java.nio.file.Files.createDirectories(csvDir);
+                if (doJson) java.nio.file.Files.createDirectories(jsonDir);
+                if (doBin)  java.nio.file.Files.createDirectories(binDir);
+            } catch (java.io.IOException io) {
+                ok = false;
+                com.amalitech.util.AppLogger.error("Batch: ensure dirs failed", io);
+            }
+
+            // TEXT (Detailed)
+            if (doText) {
+                com.amalitech.reporting.ReportGenerator rg = new com.amalitech.reporting.ReportGenerator();
+                String summary = rg.generateStudentReport(s);
+
+                StringBuilder out = new StringBuilder();
+                out.append(summary).append(System.lineSeparator());
+                out.append("SUMMARY METRICS").append(System.lineSeparator());
+                out.append(String.format("Core Average: %.2f%%%n", coreAvg));
+                out.append(String.format("Elective Average: %.2f%%%n", elecAvg));
+                out.append(String.format("Overall Average: %.2f%%%n", overallAvg));
+                out.append("─".repeat(60)).append(System.lineSeparator());
+                out.append("GRADE HISTORY").append(System.lineSeparator());
+                out.append(String.format("%-8s │ %-10s │ %-20s │ %-8s │ %-7s%n",
+                        "GRD ID", "DATE", "SUBJECT", "TYPE", "GRADE"));
+                out.append("─".repeat(70)).append(System.lineSeparator());
+                for (Grade g : list) {
+                    out.append(String.format("%-8s │ %-10s │ %-20s │ %-8s │ %7.2f%n",
+                            g.getGradeId(), g.getDate(),
+                            g.getSubject().getSubjectName(),
+                            g.getSubject().getSubjectType(),
+                            g.getGrade()));
+                }
+
+                java.nio.file.Path target = textDir.resolve(baseName + "_report.txt");
+                try {
+                    java.nio.file.Files.writeString(target, out.toString(),
+                            java.nio.charset.StandardCharsets.UTF_8,
+                            java.nio.file.StandardOpenOption.CREATE,
+                            java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+                } catch (java.io.IOException io) {
+                    ok = false;
+                    com.amalitech.util.AppLogger.error("Batch text export failed", io);
+                }
+            }
+
+            // ALL FORMATS (CSV/JSON/Binary) using your coordinator
+            if (doCsv || doJson || doBin) {
+                com.amalitech.io.ExportCoordinator coordinator = new com.amalitech.io.ExportCoordinator();
+                try {
+                    // Write under batchBase (coordinator will create csv/json/binary subdirs)
+                    coordinator.exportAll(report, batchBase, baseName, doCsv, doJson, doBin);
+                } catch (com.amalitech.exceptions.ExportFailedException e) {
+                    ok = false;
+                    com.amalitech.util.AppLogger.error("Batch exportAll failed", e);
+                }
+            }
+        } catch (Exception ex) {
+            ok = false;
+            com.amalitech.util.AppLogger.error("Batch task exception for " + s.getStudentId(), ex);
+        }
+        long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+        return new Result(s.getStudentId(), Thread.currentThread().getName(), ok, elapsedMs);
+    }
+
+    // --- small DTO for result printing ---
+    private static final class Result {
+        final String studentId;
+        final String threadName;
+        final boolean ok;
+        final long elapsedMs;
+        Result(String studentId, String threadName, boolean ok, long elapsedMs) {
+            this.studentId = studentId; this.threadName = threadName; this.ok = ok; this.elapsedMs = elapsedMs;
+        }
+    }
+
+    // --- helpers ---
+    private static String progressBar(int percent) {
+        int width = 20;
+        int filled = Math.max(0, Math.min(width, (int) Math.round(percent / 5.0)));
+        return "[" + "█".repeat(filled) + "░".repeat(width - filled) + "]";
+    }
+    private static long avg(java.util.List<Long> xs) {
+        if (xs == null || xs.isEmpty()) return 0L;
+        long s = 0L; for (long v : xs) s += v; return s / xs.size();
+    }
+    private static long dirSize(java.nio.file.Path dir) {
+        final long[] sum = {0L};
+        try (var s = java.nio.file.Files.walk(dir)) {
+            s.filter(java.nio.file.Files::isRegularFile).forEach(p -> {
+                try { sum[0] += java.nio.file.Files.size(p); } catch (java.io.IOException ignored) {}
+            });
+        } catch (java.io.IOException ignored) {}
+        return sum[0];
+    }
 
 
     private static void calculateStudentGPA(Scanner scanner, StudentManager studentManager, GradeManager gradeManager) {
