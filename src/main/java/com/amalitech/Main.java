@@ -7,6 +7,7 @@ import com.amalitech.reporting.GPACalculator;
 import com.amalitech.io.CSVParser;
 import com.amalitech.calculation.StatisticsCalculator;
 import com.amalitech.exceptions.StudentNotFoundException;
+import com.amalitech.reporting.ReportType;
 import com.amalitech.util.AppLogger;
 import com.amalitech.util.ErrorHandler;
 import com.amalitech.util.Validators;
@@ -80,11 +81,17 @@ public class Main {
                 continue;
             }
 
+
+
             switch (choice) {
                 case 1 -> addStudent(scanner, studentManager);
                 case 2 -> viewStudents(studentManager);
                 case 3 -> recordGrade(scanner, studentManager, gradeManager);
                 case 4 -> viewGradeReport(scanner, studentManager, gradeManager);
+
+
+
+
 
 
                 case 5 -> {
@@ -159,7 +166,7 @@ public class Main {
                     String baseName = student.getName().toLowerCase().replaceAll("\\s+", "_") + "_detailed";
 
                     try {
-                        var perf = coordinator.exportAll(report, reportsDir, baseName, doCsv, doJson, doBin);
+                        var perf = coordinator.exportAll(report, reportsDir, baseName,doCsv,doJson,doBin);
 
                         // Show per-format completion (only those selected)
                         if (doCsv) {
@@ -203,6 +210,10 @@ public class Main {
                     System.out.print("\nPress Enter to continue...");
                     scanner.nextLine();
                 }
+
+
+
+
 
 
                 case 6 -> { /* Enhanced multi-format import */
