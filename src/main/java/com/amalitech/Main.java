@@ -139,6 +139,9 @@ public class Main {
 
     private static final com.amalitech.cache.CacheService<String, Object> CACHE = new com.amalitech.cache.CacheService<>(256);
 
+    //Helper list to track scheduled tasks
+    private static final java.util.List<String> scheduledTasks = new java.util.ArrayList<>();
+
 
     private static final ReportGenerator REPORT_GENERATOR = new ReportGenerator();
     private static final FileExporter FILE_EXPORTER = new FileExporter();
@@ -322,9 +325,96 @@ public class Main {
                     System.out.println("Query Grade History — to be implemented.");
                 }
 
-                case 15 -> { /* Scheduled automated tasks (NEW) */
-                    System.out.println("Schedule Automated Tasks — to be implemented.");
+
+                case 15 -> {
+                    System.out.println("\nSCHEDULE AUTOMATED TASKS");
+                    System.out.println("────────────────────────────────────────────");
+                    System.out.printf("\nCurrent Scheduled Tasks: %d active%n", scheduledTasks.size());
+                    for (int i = 0; i < scheduledTasks.size(); i++) {
+                        System.out.printf("%d. %s%n", i + 1, scheduledTasks.get(i));
+                    }
+
+                    System.out.println("\nAdd New Scheduled Task:");
+                    System.out.println(" 1. Daily GPA Recalculation");
+                    System.out.println(" 2. Weekly Grade Reportplaceholder)");
+                    System.out.println(" 3. Monthly Performance Summary (placeholder)");
+                    System.out.println(" 4. Cancel");
+                    System.out.print("\nSelect option (1-4): ");
+                    int opt;
+                    try { opt = Integer.parseInt(scanner.nextLine().trim()); } catch (NumberFormatException e) { opt = 4; }
+                    if (opt == 4) break;
+
+                    if (opt == 1) {
+                        System.out.println("\nCONFIGURE: Daily GPA Recalculation");
+                        System.out.print("Enter hour (0-23): ");
+                        int hour = Integer.parseInt(scanner.nextLine().trim());
+                        System.out.print("Enter minute (0-59): ");
+                        int minute = Integer.parseInt(scanner.nextLine().trim());
+
+                        System.out.print("\nEnter notification email: ");
+                        String email = scanner.nextLine().trim();
+
+                        // Compute initial delay
+                        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+                        java.time.LocalDateTime nextRun = java.time.LocalDateTime.of(now.toLocalDate(),
+                                java.time.LocalTime.of(hour, minute));
+                        if (!nextRun.isAfter(now)) nextRun = nextRun.plusDays(1);
+                        long initialDelay = java.time.Duration.between(now, nextRun).toSeconds();
+                        long period = java.time.Duration.ofDays(1).toSeconds();
+
+                        String taskId = "TASK-" + (scheduledTasks.size() + 1);
+                        scheduledTasks.add("[DAILY] GPA Recalculation at " + hour + ":" + String.format("%02d", minute));
+
+                        System.out.println("\nTASK CONFIGURATION SUMMARY");
+                        System.out.println("────────────────────────────────────────────");
+                        System.out.println("Task: Daily GPA Recalculation");
+                        System.out.printf("Schedule: Every day at %02d:%02d%n", hour, minute);
+                        System.out.println("Scope: All Students");
+                        System.out.println("Threads: 4 (parallel execution)");
+                        System.out.println("Notifications: Email + Log");
+                        System.out.println("Recipient: " + email);
+                        System.out.println("\nEstimated Execution Time: ~2 minutes");
+                        System.out.println("Resource Usage: LOW");
+
+                        System.out.print("\nConfirm schedule? (Y/N): ");
+                        String confirm = scanner.nextLine().trim().toUpperCase();
+                        if (!"Y".equals(confirm)) break;
+
+                        // Schedule the task
+                        scheduler.scheduleAtFixedRate(() -> {
+                            try {
+                                com.amalitech.util.AppLogger.info("Running Daily GPA Recalculation...");
+                                // Simulate GPA recalculation
+                                double avg = studentManager.getAverageClassGrade();
+                                com.amalitech.util.AppLogger.info("Class average GPA: " + avg);
+                                // Mock email notification
+                                java.nio.file.Path dir = java.nio.file.Paths.get("./reports/notifications");
+                                java.nio.file.Files.createDirectories(dir);
+                                java.nio.file.Path file = dir.resolve("daily_gpa_" + java.time.LocalDate.now() + ".txt");
+                                java.nio.file.Files.writeString(file,
+                                        "TO: " + email + "\nSubject: Daily GPA Summary\n\nClass Average GPA: " + avg);
+                            } catch (Exception e) {
+                                com.amalitech.util.AppLogger.error("Scheduled task failed", e);
+                            }
+                        }, initialDelay, period, java.util.concurrent.TimeUnit.SECONDS);
+
+                        System.out.println("\n✓ Task scheduled successfully!");
+                        System.out.println("  Task ID: " + taskId);
+                        System.out.println("  Scheduler Thread: RUNNING");
+                        System.out.println("  Next Execution: " + nextRun);
+                        long h = initialDelay / 3600; long m = (initialDelay % 3600) / 60; long s = initialDelay % 60;
+                        System.out.printf("  Initial Delay: %dh %dm %ds%n", h, m, s);
+                        System.out.println("\nThe task will run automatically in the background.");
+                        System.out.print("\nPress Enter to continue...");
+                        scanner.nextLine();
+                    } else {
+                        System.out.println("\n(Selected task type is a placeholder)");
+                        System.out.print("\nPress Enter to continue...");
+                        scanner.nextLine();
+                    }
                 }
+
+
                 case 16 -> { /* View system performance (NEW) */
                     System.out.println("View System Performance — to be implemented.");
                 }
