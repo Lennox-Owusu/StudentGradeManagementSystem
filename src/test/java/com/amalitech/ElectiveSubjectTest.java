@@ -1,6 +1,8 @@
 
 package com.amalitech;
 
+import com.amalitech.model.ElectiveSubject;
+import com.amalitech.model.Subject;
 import org.junit.Test;
 
 import static org.junit.Assert.*;

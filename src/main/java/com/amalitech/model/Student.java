@@ -1,5 +1,5 @@
 
-package com.amalitech;
+package com.amalitech.model;
 
 import com.amalitech.interfaces.Gradable;
 import com.amalitech.calculation.GradingStrategy;

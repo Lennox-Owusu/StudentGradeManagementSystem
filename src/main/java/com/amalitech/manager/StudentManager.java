@@ -1,5 +1,7 @@
-package com.amalitech;
+package com.amalitech.manager;
 
+
+import com.amalitech.model.Student;
 
 //Manages a collection of Student objects
 public class StudentManager {

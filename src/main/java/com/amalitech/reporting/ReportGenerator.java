@@ -1,7 +1,7 @@
 
 package com.amalitech.reporting;
 
-import com.amalitech.Student;
+import com.amalitech.model.Student;
 
 
 //Generates simple text reports for a Student.
