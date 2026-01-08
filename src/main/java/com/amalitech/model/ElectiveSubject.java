@@ -1,4 +1,4 @@
-package com.amalitech;
+package com.amalitech.model;
 
 //Represents an elective (non-mandatory) subject a student may choose.
 public class ElectiveSubject extends Subject {
