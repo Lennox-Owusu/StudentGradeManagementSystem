@@ -53,9 +53,8 @@ public final class CacheService<K, V> {
     public long evictions() { return evict.sum(); }
 
 
-    public void resetStats() {
-    }
+    public void resetStats() { hits.reset(); misses.reset(); evict.reset(); }
+    public void clearAll() { map.clear(); evict.increment(); }
 
-    public void clearAll() {
-    }
+
 }
