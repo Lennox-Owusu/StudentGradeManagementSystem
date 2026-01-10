@@ -1,4 +1,4 @@
-package com.amalitech;
+package com.amalitech.base;
 
 
 //Represents an honors student with additional eligibility checks.

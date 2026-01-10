@@ -1,7 +1,12 @@
 
 package com.amalitech.io;
 
-import com.amalitech.*;
+import com.amalitech.base.Grade;
+import com.amalitech.base.HonorsStudent;
+import com.amalitech.base.RegularStudent;
+import com.amalitech.base.Student;
+import com.amalitech.manager.GradeManager;
+import com.amalitech.manager.StudentManager;
 import com.amalitech.reporting.StudentReport;
 import com.amalitech.util.AppLogger;
 import com.amalitech.exceptions.*;

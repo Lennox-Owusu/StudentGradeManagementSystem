@@ -1,6 +1,8 @@
 
 package com.amalitech;
 
+import com.amalitech.base.*;
+import com.amalitech.manager.GradeManager;
 import org.junit.Test;
 import static org.junit.Assert.*;
 

@@ -1,4 +1,4 @@
-package com.amalitech;
+package com.amalitech.base;
 
 //Represents a mandatory core subject that all students must take.
 public class CoreSubject extends Subject {

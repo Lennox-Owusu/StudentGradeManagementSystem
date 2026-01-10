@@ -1,4 +1,4 @@
-package com.amalitech;
+package com.amalitech.base;
 
 //Represents a regular student with standard passing grade logic.
 public class RegularStudent extends Student {

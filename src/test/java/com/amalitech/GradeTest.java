@@ -1,6 +1,9 @@
 
 package com.amalitech;
 
+import com.amalitech.base.CoreSubject;
+import com.amalitech.base.Grade;
+import com.amalitech.base.Subject;
 import org.junit.Test;
 
 import java.time.LocalDate;

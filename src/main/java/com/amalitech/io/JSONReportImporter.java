@@ -1,10 +1,8 @@
 
 package com.amalitech.io;
 
-import com.amalitech.Grade;
-import com.amalitech.Subject;
-import com.amalitech.CoreSubject;
-import com.amalitech.ElectiveSubject;
+import com.amalitech.base.*;
+import com.amalitech.base.Subject;
 import com.amalitech.reporting.StudentReport;
 import com.amalitech.exceptions.ImportFailedException;
 import com.amalitech.exceptions.JsonFormatException;
@@ -74,8 +72,8 @@ public final class JSONReportImporter implements Importer<StudentReport> {
 
         return new StudentReport(
                 "Honors Student".equalsIgnoreCase(stype)
-                        ? new com.amalitech.HonorsStudent(name, 16, email, phone)
-                        : new com.amalitech.RegularStudent(name, 16, email, phone),
+                        ? new HonorsStudent(name, 16, email, phone)
+                        : new RegularStudent(name, 16, email, phone),
                 grades, c, e, o, phone
         );
     }

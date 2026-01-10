@@ -1,6 +1,10 @@
 
 package com.amalitech;
 
+import com.amalitech.base.HonorsStudent;
+import com.amalitech.base.RegularStudent;
+import com.amalitech.base.Student;
+import com.amalitech.manager.StudentManager;
 import org.junit.Test;
 
 import static org.junit.Assert.*;

@@ -1,4 +1,4 @@
-package com.amalitech;
+package com.amalitech.base;
 
 
 //Represents an entity capable of recording and validating grades.
