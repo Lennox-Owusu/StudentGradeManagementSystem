@@ -5,10 +5,10 @@ import com.amalitech.app.AppContext;
 import com.amalitech.app.ConsoleApp;
 import com.amalitech.app.DemoDataSeeder;
 import com.amalitech.concurrent.BackgroundTaskTracker;
-import com.amalitech.concurrent.StatusRefresher;  // <-- add
+import com.amalitech.concurrent.StatusRefresher;
 import com.amalitech.exceptions.ValidationException;
 
-import java.util.concurrent.ThreadPoolExecutor;   // <-- add
+import java.util.concurrent.ThreadPoolExecutor;
 
 public class Main {
     public static void main(String[] args) throws ValidationException {
