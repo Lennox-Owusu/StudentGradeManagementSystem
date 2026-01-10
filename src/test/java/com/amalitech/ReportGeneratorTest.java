@@ -1,6 +1,7 @@
 
 package com.amalitech;
 
+import com.amalitech.base.RegularStudent;
 import com.amalitech.reporting.ReportGenerator;
 import org.junit.Test;
 import static org.junit.Assert.*;

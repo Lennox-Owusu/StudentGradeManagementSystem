@@ -1,8 +1,8 @@
 
 package com.amalitech.service.impl;
 
-import com.amalitech.GradeManager;
-import com.amalitech.StudentManager;
+import com.amalitech.manager.GradeManager;
+import com.amalitech.manager.StudentManager;
 import com.amalitech.cache.CacheService;
 import com.amalitech.monitor.SystemPerformanceMonitor;
 import com.amalitech.service.api.IPerformanceMonitorService;
@@ -10,6 +10,7 @@ import com.amalitech.service.api.IPerformanceMonitorService;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class PerformanceMonitorServiceImpl implements IPerformanceMonitorService {
     private final Scanner scanner;
@@ -32,6 +33,6 @@ public class PerformanceMonitorServiceImpl implements IPerformanceMonitorService
     }
 
     @Override public void run() {
-        new SystemPerformanceMonitor(2).runInteractive(scanner, sm, gm, fixedPool, cachedPool, scheduler, cache);
+        new SystemPerformanceMonitor(2).runInteractive(scanner, sm, gm, fixedPool, cachedPool, (ScheduledThreadPoolExecutor) scheduler, cache);
     }
 }

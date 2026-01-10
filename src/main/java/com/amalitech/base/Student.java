@@ -1,5 +1,5 @@
 
-package com.amalitech;
+package com.amalitech.base;
 
 import com.amalitech.interfaces.Gradable;
 import com.amalitech.calculation.GradingStrategy;
@@ -93,5 +93,9 @@ public abstract class Student implements Gradable {
     //Read-only copy if calculators need raw grades
     public List<Double> getGrades() {
         return new ArrayList<>(grades);
+    }
+
+    public String getPhone() {
+        return "";
     }
 }

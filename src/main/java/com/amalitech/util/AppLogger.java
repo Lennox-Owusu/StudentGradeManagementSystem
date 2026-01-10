@@ -19,7 +19,8 @@ public final class AppLogger {
         write("INFO", message, null);
     }
 
-    public static void error(String message, Throwable t) {
+    public static void error(String message) {
+        Throwable t = new Throwable();
         write("ERROR", message, t);
     }
 

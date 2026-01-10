@@ -1,4 +1,4 @@
-package com.amalitech;
+package com.amalitech.base;
 
 
 

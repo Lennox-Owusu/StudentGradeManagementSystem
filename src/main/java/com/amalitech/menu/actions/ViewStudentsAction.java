@@ -1,7 +1,7 @@
 
 package com.amalitech.menu.actions;
 
-import com.amalitech.Student;
+import com.amalitech.base.Student;
 import com.amalitech.app.AppContext;
 import com.amalitech.menu.MenuAction;
 

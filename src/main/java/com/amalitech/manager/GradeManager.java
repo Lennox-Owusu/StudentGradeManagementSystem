@@ -1,5 +1,7 @@
-package com.amalitech;
+package com.amalitech.manager;
 
+
+import com.amalitech.base.Grade;
 
 //Manages a collection of Grade objects and provides methods to calculate averages.
 public class GradeManager {
@@ -67,6 +69,10 @@ public class GradeManager {
 
     public int getGradeCount() {
         return gradeCount;
+    }
+
+    public int countGradesForStudent(String sid) {
+        return 0;
     }
 }
 

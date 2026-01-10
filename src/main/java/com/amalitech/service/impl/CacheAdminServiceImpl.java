@@ -1,8 +1,8 @@
 
 package com.amalitech.service.impl;
 
-import com.amalitech.GradeManager;
-import com.amalitech.StudentManager;
+import com.amalitech.manager.GradeManager;
+import com.amalitech.manager.StudentManager;
 import com.amalitech.cache.CacheService;
 import com.amalitech.service.api.ICacheAdminService;
 

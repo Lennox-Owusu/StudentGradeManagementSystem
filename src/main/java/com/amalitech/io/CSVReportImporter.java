@@ -1,10 +1,11 @@
 
 package com.amalitech.io;
 
-import com.amalitech.Grade;
-import com.amalitech.Subject;
-import com.amalitech.CoreSubject;
-import com.amalitech.ElectiveSubject;
+import com.amalitech.base.Grade;
+import com.amalitech.base.Subject;
+import com.amalitech.base.CoreSubject;
+import com.amalitech.base.ElectiveSubject;
+import com.amalitech.base.RegularStudent;
 import com.amalitech.reporting.StudentReport;
 import com.amalitech.exceptions.CsvFormatException;
 import com.amalitech.exceptions.ImportFailedException;
@@ -107,7 +108,7 @@ public final class CSVReportImporter implements Importer<StudentReport> {
 
         return new StudentReport(
 
-                new com.amalitech.RegularStudent(name, 16, email, phone), // age default 16
+                new RegularStudent(name, 16, email, phone), // age default 16
                 grades, coreAvg, elecAvg, overallAvg, phone
         );
     }

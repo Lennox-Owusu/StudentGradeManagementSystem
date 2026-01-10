@@ -1,8 +1,11 @@
 
 package com.amalitech.menu.actions;
 
-import com.amalitech.*;
 import com.amalitech.app.AppContext;
+import com.amalitech.base.CoreSubject;
+import com.amalitech.base.ElectiveSubject;
+import com.amalitech.base.Student;
+import com.amalitech.base.Subject;
 import com.amalitech.io.CSVParser;
 import com.amalitech.menu.MenuAction;
 import com.amalitech.util.ErrorHandler;

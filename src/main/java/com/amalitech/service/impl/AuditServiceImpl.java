@@ -24,7 +24,7 @@ public class AuditServiceImpl implements IAuditService {
                 if (dq.size() == n) dq.removeFirst();
                 dq.addLast(line);
             }
-        } catch (IOException io) { AppLogger.error("Audit tail failed", io); }
+        } catch (IOException io) { AppLogger.error("Audit tail failed"); }
         return new ArrayList<>(dq);
     }
 
@@ -32,7 +32,7 @@ public class AuditServiceImpl implements IAuditService {
         if (!Files.exists(LOG)) return List.of();
         try (var stream = Files.lines(LOG, StandardCharsets.UTF_8)) {
             return stream.filter(l -> l.contains("[" + level.toUpperCase() + "]")).toList();
-        } catch (IOException io) { AppLogger.error("Audit filter failed", io); return List.of(); }
+        } catch (IOException io) { AppLogger.error("Audit filter failed"); return List.of(); }
     }
 
     @Override public List<String> searchByKeyword(String keyword) {
@@ -40,7 +40,7 @@ public class AuditServiceImpl implements IAuditService {
         String kw = keyword.toLowerCase();
         try (var stream = Files.lines(LOG, StandardCharsets.UTF_8)) {
             return stream.filter(l -> l.toLowerCase().contains(kw)).toList();
-        } catch (IOException io) { AppLogger.error("Audit search failed", io); return List.of(); }
+        } catch (IOException io) { AppLogger.error("Audit search failed"); return List.of(); }
     }
 
     @Override public void exportView(List<String> lines) {
@@ -50,7 +50,7 @@ public class AuditServiceImpl implements IAuditService {
             Path out = REPORTS.resolve("audit_view_" + ts + ".log");
             Files.write(out, lines, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        } catch (IOException io) { AppLogger.error("Audit export failed", io); }
+        } catch (IOException io) { AppLogger.error("Audit export failed"); }
     }
 
     @Override public void archiveAndTruncate() {
@@ -63,6 +63,6 @@ public class AuditServiceImpl implements IAuditService {
             Files.copy(LOG, archive, StandardCopyOption.REPLACE_EXISTING);
             Files.writeString(LOG, "", StandardCharsets.UTF_8,
                     StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
-        } catch (IOException io) { AppLogger.error("Audit archive failed", io); }
+        } catch (IOException io) { AppLogger.error("Audit archive failed"); }
     }
 }

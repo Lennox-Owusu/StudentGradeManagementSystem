@@ -1,6 +1,10 @@
 
 package com.amalitech;
 
+import com.amalitech.base.CoreSubject;
+import com.amalitech.base.ElectiveSubject;
+import com.amalitech.base.RegularStudent;
+import com.amalitech.base.Subject;
 import org.junit.Test;
 
 import static org.junit.Assert.*;

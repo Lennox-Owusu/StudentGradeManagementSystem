@@ -1,9 +1,9 @@
 
 package com.amalitech.service.api;
 
-import com.amalitech.Grade;
-import com.amalitech.Student;
-import com.amalitech.Subject;
+import com.amalitech.base.Grade;
+import com.amalitech.base.Student;
+import com.amalitech.base.Subject;
 import com.amalitech.exceptions.InvalidGradeException;
 
 import java.util.List;

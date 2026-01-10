@@ -1,10 +1,10 @@
 
 package com.amalitech.service.impl;
 
-import com.amalitech.Grade;
-import com.amalitech.GradeManager;
-import com.amalitech.Student;
-import com.amalitech.StudentManager;
+import com.amalitech.base.Grade;
+import com.amalitech.manager.GradeManager;
+import com.amalitech.base.Student;
+import com.amalitech.manager.StudentManager;
 import com.amalitech.service.api.ISearchService;
 
 import java.util.*;

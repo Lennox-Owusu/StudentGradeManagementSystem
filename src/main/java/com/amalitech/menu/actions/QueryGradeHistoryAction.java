@@ -1,7 +1,7 @@
 
 package com.amalitech.menu.actions;
 
-import com.amalitech.Grade;
+import com.amalitech.base.Grade;
 import com.amalitech.app.AppContext;
 import com.amalitech.menu.MenuAction;
 import com.amalitech.util.ErrorHandler;

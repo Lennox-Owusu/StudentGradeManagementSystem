@@ -7,7 +7,7 @@
     "id": "STU002",
     "name": "Bob Smith",
     "email": "bob@school.edu",
-    "phone": "+1-555-0123",
+    "phone": "",
     "type": "Honors Student"
   },
   "aggregates": {

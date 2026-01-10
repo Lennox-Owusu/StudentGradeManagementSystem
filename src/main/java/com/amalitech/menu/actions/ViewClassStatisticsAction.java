@@ -1,8 +1,8 @@
 
 package com.amalitech.menu.actions;
 
-import com.amalitech.*;
 import com.amalitech.app.AppContext;
+import com.amalitech.base.Grade;
 import com.amalitech.calculation.StatisticsCalculator;
 import com.amalitech.menu.MenuAction;
 

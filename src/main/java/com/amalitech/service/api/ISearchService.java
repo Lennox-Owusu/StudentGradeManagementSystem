@@ -1,8 +1,8 @@
 
 package com.amalitech.service.api;
 
-import com.amalitech.Student;
-import com.amalitech.Grade;
+import com.amalitech.base.Student;
+import com.amalitech.base.Grade;
 import java.util.List;
 
 public interface ISearchService {

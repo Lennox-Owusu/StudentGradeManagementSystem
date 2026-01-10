@@ -1,8 +1,8 @@
 
 package com.amalitech.app;
 
-import com.amalitech.GradeManager;
-import com.amalitech.StudentManager;
+import com.amalitech.manager.GradeManager;
+import com.amalitech.manager.StudentManager;
 import com.amalitech.cache.CacheService;
 import com.amalitech.io.ExportCoordinator;
 import com.amalitech.io.ImportCoordinator;
@@ -27,14 +27,14 @@ public class AppContext {
     // Shared cache
     public final CacheService<String,Object> cache = new CacheService<>(256);
 
-    // Coordinators (your existing classes)
+    // Coordinators
     public final ExportCoordinator exportCoordinator = new ExportCoordinator();
     public final ImportCoordinator importCoordinator = new ImportCoordinator();
 
     // Console IO
     public final Scanner scanner = new Scanner(System.in);
 
-    // Services (Batch 2 implementations)
+    // Services
     public final IStudentService students = new StudentServiceImpl(studentManager);
     public final IGradeService grades = new GradeServiceImpl(gradeManager);
     public final IExportService exporter = new ExportServiceImpl(gradeManager, exportCoordinator);

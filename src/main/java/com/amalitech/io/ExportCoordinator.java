@@ -36,11 +36,6 @@ public final class ExportCoordinator {
             this.binBytes = binBytes;
         }
 
-        public String compressionRatio() {
-            if (binBytes == 0 || jsonBytes == 0) return "n/a";
-            double ratio = (double) jsonBytes / (double) binBytes;
-            return String.format("%.1f:1 (binary vs JSON)", ratio);
-        }
     }
 
     private final ExecutorService pool = Executors.newFixedThreadPool(3);

@@ -1,10 +1,10 @@
 
 package com.amalitech.service.impl;
 
-import com.amalitech.Grade;
-import com.amalitech.GradeManager;
-import com.amalitech.Student;
-import com.amalitech.Subject;
+import com.amalitech.base.Grade;
+import com.amalitech.manager.GradeManager;
+import com.amalitech.base.Student;
+import com.amalitech.base.Subject;
 import com.amalitech.exceptions.InvalidGradeException;
 import com.amalitech.monitor.GradeEventTracker;
 import com.amalitech.service.api.IGradeService;
@@ -26,7 +26,7 @@ public class GradeServiceImpl implements IGradeService {
         Grade g = new Grade(student.getStudentId(), subject, gradePct);
         gm.addGrade(g);
 
-        // Persist also on student aggregates (keeps your model behavior intact)
+        // Persist also on student aggregates
         student.recordGrade(gradePct);
         student.enrollSubject(subject);
 

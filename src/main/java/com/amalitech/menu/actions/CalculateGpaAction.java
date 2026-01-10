@@ -1,8 +1,9 @@
 
 package com.amalitech.menu.actions;
 
-import com.amalitech.*;
 import com.amalitech.app.AppContext;
+import com.amalitech.base.Grade;
+import com.amalitech.base.Student;
 import com.amalitech.menu.MenuAction;
 import com.amalitech.reporting.GPACalculator;
 

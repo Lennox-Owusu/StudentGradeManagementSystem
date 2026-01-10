@@ -1,10 +1,10 @@
 
 package com.amalitech.service.impl;
 
-import com.amalitech.HonorsStudent;
-import com.amalitech.RegularStudent;
-import com.amalitech.Student;
-import com.amalitech.StudentManager;
+import com.amalitech.base.HonorsStudent;
+import com.amalitech.base.RegularStudent;
+import com.amalitech.base.Student;
+import com.amalitech.manager.StudentManager;
 import com.amalitech.exceptions.ValidationException;
 import com.amalitech.service.api.IStudentService;
 import com.amalitech.util.RegexValidators;

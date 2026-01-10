@@ -7,32 +7,14 @@
     "id": "STU001",
     "name": "Alice Johnson",
     "email": "alice@school.edu",
-    "phone": "+1-555-0123",
+    "phone": "",
     "type": "Regular Student"
   },
   "aggregates": {
-    "coreAverage": 78.00,
-    "electiveAverage": 45.00,
-    "overallAverage": 61.50
+    "coreAverage": 0.00,
+    "electiveAverage": 0.00,
+    "overallAverage": 0.00
   },
   "grades": [
-    {
-      "id": "GRD1",
-      "date": "2026-01-06",
-      "subject": {
-        "name": "English",
-        "type": "Core"
-      },
-      "grade": 78.00
-    },
-    {
-      "id": "GRD2",
-      "date": "2026-01-06",
-      "subject": {
-        "name": "Music",
-        "type": "Elective"
-      },
-      "grade": 45.00
-    }
   ]
 }

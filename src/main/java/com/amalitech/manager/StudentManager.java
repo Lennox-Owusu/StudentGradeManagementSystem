@@ -1,5 +1,7 @@
 
-package com.amalitech;
+package com.amalitech.manager;
+
+import com.amalitech.base.Student;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -56,7 +58,7 @@ public class StudentManager {
 
     public Student[] getStudents() {
         Student[] copy = new Student[studentCount];
-        for (int i = 0; i < studentCount; i++) copy[i] = students[i];
+        System.arraycopy(students, 0, copy, 0, studentCount);
         return copy;
     }
 

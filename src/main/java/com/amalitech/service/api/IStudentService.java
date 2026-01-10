@@ -1,7 +1,7 @@
 
 package com.amalitech.service.api;
 
-import com.amalitech.Student;
+import com.amalitech.base.Student;
 import com.amalitech.exceptions.ValidationException;
 
 import java.util.List;

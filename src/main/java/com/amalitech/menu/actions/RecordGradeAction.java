@@ -1,8 +1,8 @@
 
 package com.amalitech.menu.actions;
 
-import com.amalitech.*;
 import com.amalitech.app.AppContext;
+import com.amalitech.base.*;
 import com.amalitech.menu.MenuAction;
 import com.amalitech.util.ErrorHandler;
 

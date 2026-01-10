@@ -1,8 +1,8 @@
 
 package com.amalitech.reporting;
 
-import com.amalitech.Grade;
-import com.amalitech.Student;
+import com.amalitech.base.Grade;
+import com.amalitech.base.Student;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -32,7 +32,7 @@ public final class StudentReport implements Serializable {
         this.studentId = student.getStudentId();
         this.name = student.getName();
         this.email = student.getEmail();
-        this.phone = phoneOverride; // we don’t store phone on Student; supplied by caller if available
+        this.phone = phoneOverride;
         this.type = student.getStudentType();
         this.totalGrades = gradeList.size();
         this.grades.addAll(gradeList);
